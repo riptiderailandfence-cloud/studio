@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "satellite-map",
+      "description": "Satellite view of a residential property for fence measurement",
+      "imageUrl": "https://images.unsplash.com/photo-1722080767360-f0640ae8ce2f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzYXRlbGxpdGUlMjBtYXB8ZW58MHx8fHwxNzcxNzA5MzcxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "satellite map"
+    }
+  ]
 }

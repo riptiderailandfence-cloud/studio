@@ -25,6 +25,7 @@ import {
   Settings2
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
+import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -253,7 +254,7 @@ export default function NewEstimatePage() {
             </Card>
           )}
 
-          {/* Step 2: Project Sections (The new complex layout logic) */}
+          {/* Step 2: Project Sections */}
           {step === 2 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -313,7 +314,13 @@ export default function NewEstimatePage() {
                     
                     <div className="bg-secondary/30 p-4 rounded-xl flex items-center justify-between gap-6">
                       <div className="space-y-1">
-                        <h4 className="font-bold">Segment Length</h4>
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="font-bold">Segment Length</h4>
+                          <MapMeasurementTool 
+                            address={jobAddress} 
+                            onApply={(feet) => updateSection(sec.id, { feet })} 
+                          />
+                        </div>
                         <p className="text-xs text-muted-foreground">How many feet for this specific segment?</p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -332,7 +339,7 @@ export default function NewEstimatePage() {
             </div>
           )}
 
-          {/* Step 3: Scope & Demo (Now just extra settings) */}
+          {/* Step 3: Scope & Demo */}
           {step === 3 && (
             <Card className="border-2">
               <CardHeader>
@@ -354,7 +361,15 @@ export default function NewEstimatePage() {
                   {enableDemo && (
                     <div className="p-6 border-2 border-dashed rounded-2xl animate-in slide-in-from-top-2">
                       <div className="flex items-center justify-between">
-                        <Label>How many feet to remove?</Label>
+                        <div className="space-y-1">
+                          <Label>How many feet to remove?</Label>
+                          <div className="mt-1">
+                            <MapMeasurementTool 
+                              address={jobAddress} 
+                              onApply={setDemoFeet} 
+                            />
+                          </div>
+                        </div>
                         <div className="flex items-center gap-3">
                           <Input 
                             type="number" 

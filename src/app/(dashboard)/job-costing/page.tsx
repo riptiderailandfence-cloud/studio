@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { 
   Table, 
   TableBody, 
@@ -19,7 +19,10 @@ import {
   AlertTriangle,
   ArrowUpRight,
   ArrowDownRight,
-  Info
+  Info,
+  Pencil,
+  Save,
+  X
 } from "lucide-react";
 import { SAMPLE_PERFORMANCE } from "@/lib/mock-data";
 import { JobPerformance } from "@/lib/types";
@@ -34,10 +37,23 @@ import {
   Legend
 } from 'recharts';
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 
 export default function JobCostingPage() {
   const [mounted, setMounted] = useState(false);
-  const performance = SAMPLE_PERFORMANCE;
+  const [performance, setPerformance] = useState<JobPerformance[]>(SAMPLE_PERFORMANCE);
+  const [editingJob, setEditingJob] = useState<JobPerformance | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -63,6 +79,27 @@ export default function JobCostingPage() {
       Actual: p.totalActual,
     }));
   }, [performance]);
+
+  const handleUpdateActuals = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingJob) return;
+
+    const updatedActuals = {
+      ...editingJob,
+      totalActual: editingJob.actualMaterials + editingJob.actualLabor,
+      variance: editingJob.totalEstimated - (editingJob.actualMaterials + editingJob.actualLabor),
+      // Simplified margin calc: (Revenue - ActualCost) / Revenue. 
+      // Assuming Revenue is EstTotal / (1-0.3) roughly for this mock.
+      actualMargin: ((editingJob.totalEstimated * 1.4) - (editingJob.actualMaterials + editingJob.actualLabor)) / (editingJob.totalEstimated * 1.4)
+    };
+
+    setPerformance(prev => prev.map(p => p.id === updatedActuals.id ? updatedActuals : p));
+    setEditingJob(null);
+    toast({
+      title: "Actuals Updated",
+      description: `Financials for ${updatedActuals.customerName} have been recorded.`,
+    });
+  };
 
   if (!mounted) return null;
 
@@ -183,7 +220,7 @@ export default function JobCostingPage() {
                 <TableHead className="text-right">Actual Cost</TableHead>
                 <TableHead className="text-right">Variance</TableHead>
                 <TableHead className="text-center">Actual Margin</TableHead>
-                <TableHead className="text-right">Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -206,9 +243,9 @@ export default function JobCostingPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Badge variant="outline" className="capitalize">
-                      {job.status.replace('_', ' ')}
-                    </Badge>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingJob(job)}>
+                      <Pencil className="h-3 w-3 mr-1" /> Record Actuals
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -216,6 +253,47 @@ export default function JobCostingPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!editingJob} onOpenChange={(open) => !open && setEditingJob(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleUpdateActuals}>
+            <DialogHeader>
+              <DialogTitle>Record Actual Job Costs</DialogTitle>
+              <DialogDescription>
+                Input final expenditures for {editingJob?.customerName}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="actualMaterials">Final Material Cost ($)</Label>
+                <Input 
+                  id="actualMaterials" 
+                  type="number" 
+                  step="0.01"
+                  value={editingJob?.actualMaterials || 0} 
+                  onChange={(e) => setEditingJob(prev => prev ? { ...prev, actualMaterials: parseFloat(e.target.value) || 0 } : null)}
+                />
+                <p className="text-[10px] text-muted-foreground italic">Estimated: ${editingJob?.estimatedMaterials.toFixed(2)}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="actualLabor">Final Labor Cost ($)</Label>
+                <Input 
+                  id="actualLabor" 
+                  type="number" 
+                  step="0.01"
+                  value={editingJob?.actualLabor || 0} 
+                  onChange={(e) => setEditingJob(prev => prev ? { ...prev, actualLabor: parseFloat(e.target.value) || 0 } : null)}
+                />
+                <p className="text-[10px] text-muted-foreground italic">Estimated: ${editingJob?.estimatedLabor.toFixed(2)}</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingJob(null)}>Cancel</Button>
+              <Button type="submit">Save Financials</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

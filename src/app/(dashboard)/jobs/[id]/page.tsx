@@ -23,25 +23,43 @@ import {
   HardHat,
   Phone,
   Mail,
-  FileText
+  FileText,
+  DollarSign,
+  Loader2
 } from "lucide-react";
 import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
 
 export default function JobPackPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
   const [mounted, setMounted] = useState(false);
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Completion State
+  const [actualMaterials, setActualMaterials] = useState<number>(0);
+  const [actualLabor, setActualLabor] = useState<number>(0);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Mock Job Data derived from Estimate ID
+  // Mock Job Data
   const jobData = useMemo(() => {
-    // In a real app, this would fetch from Firestore based on ID
     return {
       id: id,
       customer: SAMPLE_CUSTOMERS[0],
@@ -53,9 +71,18 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
       gates: [
         { id: 'g1', name: 'Cedar Walk Gate', qty: 1 }
       ],
-      notes: "Digging may be tough on back fence line. Client requested caps on all posts."
+      notes: "Digging may be tough on back fence line. Client requested caps on all posts.",
+      estMaterials: 2200,
+      estLabor: 1500
     };
   }, [id]);
+
+  useEffect(() => {
+    if (jobData) {
+      setActualMaterials(jobData.estMaterials);
+      setActualLabor(jobData.estLabor);
+    }
+  }, [jobData]);
 
   // Consolidate Materials for the Pull List
   const materialPullList = useMemo(() => {
@@ -67,7 +94,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
         style.bom.forEach(bomItem => {
           const mat = SAMPLE_MATERIALS.find(m => m.id === bomItem.materialId);
           if (mat) {
-            // Quantity Calculation: (Qty Per Foot * Total Feet) * (1 + Waste %)
             const quantity = (bomItem.qtyPerUnit * segment.feet) * (1 + (bomItem.wastePct || 0));
             
             if (pullList[bomItem.materialId]) {
@@ -88,6 +114,19 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
     return Object.values(pullList).sort((a, b) => a.category.localeCompare(b.category));
   }, [jobData]);
 
+  const handleCompleteJob = () => {
+    setIsSaving(true);
+    setTimeout(() => {
+      setIsSaving(false);
+      setIsCompleteDialogOpen(false);
+      toast({
+        title: "Job Completed",
+        description: `Financials recorded. Job ${id} has been moved to archives.`,
+      });
+      router.push("/job-costing");
+    }, 1200);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -100,16 +139,13 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
           <Button variant="outline" onClick={() => window.print()} className="gap-2">
             <Printer className="h-4 w-4" /> Print Job Pack
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setIsCompleteDialogOpen(true)}>
             <CheckCircle2 className="h-4 w-4" /> Mark as Completed
           </Button>
         </div>
       </div>
 
-      {/* Main Job Pack Content */}
       <div className="grid gap-8 lg:grid-cols-3">
-        
-        {/* Left Column: Job Overview & Scope */}
         <div className="lg:col-span-2 space-y-8">
           <Card className="border-2 shadow-sm">
             <CardHeader className="bg-primary text-primary-foreground">
@@ -183,7 +219,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
             </CardContent>
           </Card>
 
-          {/* Material Pull List Card */}
           <Card className="border-2 shadow-sm overflow-hidden">
             <CardHeader className="bg-slate-900 text-white">
               <CardTitle className="flex items-center gap-2">
@@ -221,7 +256,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
           </Card>
         </div>
 
-        {/* Right Column: Crew & Logistics */}
         <div className="space-y-6 print:hidden">
           <Card className="border-2">
             <CardHeader>
@@ -275,6 +309,51 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
           </Card>
         </div>
       </div>
+
+      {/* Completion Dialog */}
+      <Dialog open={isCompleteDialogOpen} onOpenChange={setIsCompleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Complete Job & Record Costs</DialogTitle>
+            <DialogDescription>
+              Record the actual expenditures to finalize job costing for {id}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="materials" className="flex items-center gap-2">
+                <Package className="h-4 w-4" /> Final Material Cost ($)
+              </Label>
+              <Input 
+                id="materials" 
+                type="number" 
+                value={actualMaterials} 
+                onChange={(e) => setActualMaterials(parseFloat(e.target.value) || 0)} 
+              />
+              <p className="text-[10px] text-muted-foreground italic">Budgeted: ${jobData.estMaterials.toFixed(2)}</p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="labor" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4" /> Final Labor Cost ($)
+              </Label>
+              <Input 
+                id="labor" 
+                type="number" 
+                value={actualLabor} 
+                onChange={(e) => setActualLabor(parseFloat(e.target.value) || 0)} 
+              />
+              <p className="text-[10px] text-muted-foreground italic">Budgeted: ${jobData.estLabor.toFixed(2)}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCompleteDialogOpen(false)}>Back</Button>
+            <Button onClick={handleCompleteJob} disabled={isSaving} className="gap-2">
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Finalize & Close Job
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

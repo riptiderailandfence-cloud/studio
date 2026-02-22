@@ -231,6 +231,7 @@ export default function StylesPage() {
                   <Badge variant="secondary">{style.category}</Badge>
                 </div>
                 <CardTitle className="text-xl font-bold">{style.name}</CardTitle>
+                <CardTitle className="text-xl font-bold">{style.name}</CardTitle>
                 <CardDescription className="line-clamp-2">{style.description}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -439,7 +440,7 @@ export default function StylesPage() {
                                 <div 
                                   className="flex items-center border-b px-3 bg-white"
                                   onKeyDown={(e) => {
-                                    e.stopPropagation(); // Prevent dialog from eating keys
+                                    e.stopPropagation(); // CRITICAL: Stop propagation so Dialog doesn't eat the keys
                                   }}
                                 >
                                   <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
@@ -449,6 +450,9 @@ export default function StylesPage() {
                                     className="h-10 w-full border-0 focus-visible:ring-0 px-0"
                                     value={matSearch}
                                     onChange={(e) => setMatSearch(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      e.stopPropagation(); // Double ensure typing works
+                                    }}
                                   />
                                 </div>
                                 <ScrollArea className="h-[200px] bg-white">

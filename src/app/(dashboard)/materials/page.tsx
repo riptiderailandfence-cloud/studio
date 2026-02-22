@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
@@ -13,7 +12,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Tag, FilterX, Upload, Pencil, Save, X, Download, FileText, Loader2 } from "lucide-react";
+import { Plus, Search, Tag, FilterX, Upload, Pencil, Save, X, Download, FileText, Loader2, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
@@ -109,6 +108,16 @@ export default function MaterialsPage() {
       setIsSaving(false);
       setIsEditorOpen(false);
     }, 600);
+  };
+
+  const handleDelete = (id: string) => {
+    const materialToDelete = materials.find(m => m.id === id);
+    setMaterials(materials.filter(m => m.id !== id));
+    toast({
+      title: "Material Removed",
+      description: `${materialToDelete?.name || 'Material'} has been deleted from your inventory.`,
+      variant: "destructive"
+    });
   };
 
   const handleDownloadTemplate = () => {
@@ -291,10 +300,16 @@ export default function MaterialsPage() {
                   <TableCell className="uppercase">{mat.unit}</TableCell>
                   <TableCell className="font-mono">${mat.unitCost.toFixed(2)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" className="gap-1" onClick={() => handleEdit(mat)}>
-                      <Pencil className="h-3 w-3" />
-                      Edit
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" className="gap-1" onClick={() => handleEdit(mat)}>
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </Button>
+                      <Button variant="ghost" size="sm" className="gap-1 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(mat.id)}>
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

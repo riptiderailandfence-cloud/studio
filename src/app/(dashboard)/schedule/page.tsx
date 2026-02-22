@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,11 @@ export default function SchedulePage() {
   const [events, setEvents] = useState<ScheduleEvent[]>(SAMPLE_EVENTS);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // New Event Form State
   const [newEvent, setNewEvent] = useState<Partial<ScheduleEvent>>({
@@ -108,6 +113,8 @@ export default function SchedulePage() {
       description: `${event.title} has been added to the calendar.`,
     });
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6">

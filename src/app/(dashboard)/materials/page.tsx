@@ -12,9 +12,10 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Tag, FilterX } from "lucide-react";
+import { Plus, Search, Tag, FilterX, Upload, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/hooks/use-toast";
 
 export default function MaterialsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,17 +33,37 @@ export default function MaterialsPage() {
     });
   }, [searchTerm, categoryFilter]);
 
+  const handleEdit = (material: Material) => {
+    toast({
+      title: "Edit Material",
+      description: `Opening editor for ${material.name}. (Feature coming soon)`,
+    });
+  };
+
+  const handleBulkUpload = () => {
+    toast({
+      title: "Bulk Upload",
+      description: "Select a CSV or Excel file to upload your material list.",
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Materials</h2>
           <p className="text-muted-foreground">Manage material inventory and unit costs used for styles.</p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Material
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleBulkUpload}>
+            <Upload className="h-4 w-4" />
+            Bulk Upload
+          </Button>
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Material
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -93,7 +114,10 @@ export default function MaterialsPage() {
                   <TableCell className="capitalize">{mat.unit.replace('_', ' ')}</TableCell>
                   <TableCell className="font-mono">${mat.unitCost.toFixed(2)}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm">Edit</Button>
+                    <Button variant="ghost" size="sm" className="gap-1" onClick={() => handleEdit(mat)}>
+                      <Pencil className="h-3 w-3" />
+                      Edit
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

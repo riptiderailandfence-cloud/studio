@@ -23,7 +23,8 @@ import {
   Trash,
   Settings2,
   Briefcase,
-  TrendingUp
+  TrendingUp,
+  Clock
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -66,11 +67,15 @@ export default function NewEstimatePage() {
   // Pricing & Breakdown State
   const [overheadPct, setOverheadPct] = useState<number>(0.10); // Default 10%
   const [profitPct, setProfitPct] = useState<number>(0.20); // Default 20%
+  const [laborRate, setLaborRate] = useState<number>(35); // Default hourly rate
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
   const [pricingValue, setPricingValue] = useState<number>(0.3); // Used as a fallback or combined strategy
 
   useEffect(() => {
     setMounted(true);
+    // Initialize labor rate from average of crew
+    const avg = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
+    setLaborRate(avg);
   }, []);
 
   const selectedCustomer = useMemo(() => SAMPLE_CUSTOMERS.find(c => c.id === selectedCustomerId), [selectedCustomerId]);
@@ -148,8 +153,7 @@ export default function NewEstimatePage() {
     const demoManHours = enableDemo ? (demoFeet * demoRate) : 0;
     totalManHours += demoManHours;
 
-    const avgHourlyRate = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
-    const laborCost = totalManHours * avgHourlyRate;
+    const laborCost = totalManHours * laborRate;
 
     const baseCost = materialsTotal + laborCost;
     
@@ -177,7 +181,7 @@ export default function NewEstimatePage() {
       finalTotal,
       deposit: finalTotal * 0.5
     };
-  }, [sections, gates, enableDemo, demoFeet, overheadPct, profitPct, fenceStyles, postStyles, gateStyles]);
+  }, [sections, gates, enableDemo, demoFeet, overheadPct, profitPct, laborRate, fenceStyles, postStyles, gateStyles]);
 
   const handleApplyAI = (method: 'margin' | 'markup', value: number) => {
     setPricingMethod(method);
@@ -531,23 +535,48 @@ export default function NewEstimatePage() {
               {/* Internal Full Breakdown */}
               <Card className="border-2 bg-slate-900 text-white">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5" /> Internal Cost Breakdown
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="h-5 w-5" /> Internal Cost Breakdown
+                    </div>
+                    <Badge variant="outline" className="text-slate-400 border-slate-700">
+                      Precision Mode
+                    </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-3">
                       <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Base Production Costs</h4>
-                      <div className="space-y-2">
+                      <div className="space-y-4">
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-400">Materials Total</span>
                           <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Labor Total</span>
-                          <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
+                        
+                        {/* Quick Labor Adjustment Field */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm items-center">
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> Labor ({totals.totalManHours.toFixed(1)} hrs)
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-500 text-[10px] font-bold">$</span>
+                              <Input 
+                                type="number" 
+                                className="w-16 h-7 bg-slate-800 border-slate-700 text-right text-xs px-2 focus:ring-primary"
+                                value={laborRate}
+                                onChange={(e) => setLaborRate(parseFloat(e.target.value) || 0)}
+                              />
+                              <span className="text-slate-500 text-[10px] font-bold">/hr</span>
+                            </div>
+                          </div>
+                          <div className="flex justify-between text-xs font-mono text-slate-500 pl-4">
+                            <span>Subtotal Labor:</span>
+                            <span>${totals.laborCost.toFixed(2)}</span>
+                          </div>
                         </div>
+
                         <Separator className="bg-slate-800" />
                         <div className="flex justify-between font-bold text-slate-300">
                           <span>Project Base Cost</span>

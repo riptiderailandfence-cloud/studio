@@ -404,7 +404,7 @@ export default function StylesPage() {
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
                             
                             <Popover 
-                              modal={true}
+                              modal={false}
                               open={openPopoverId === item.uiId} 
                               onOpenChange={(open) => {
                                 if (open) {
@@ -432,13 +432,15 @@ export default function StylesPage() {
                                 className="w-[300px] p-0 shadow-xl" 
                                 align="start"
                                 onOpenAutoFocus={(e) => {
-                                  // Manual focus handling to bypass Dialog trap if needed
+                                  e.preventDefault(); // Prevent dialog focus trap from fighting
                                   searchInputRef.current?.focus();
                                 }}
                               >
                                 <div 
                                   className="flex items-center border-b px-3 bg-white"
-                                  onKeyDown={(e) => e.stopPropagation()} // CRITICAL: Stop key events from bubbling to Dialog
+                                  onKeyDown={(e) => {
+                                    e.stopPropagation(); // Prevent dialog from eating keys
+                                  }}
                                 >
                                   <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                                   <Input

@@ -21,13 +21,21 @@ import {
   ChevronLeft,
   Eye,
   CheckCircle2,
-  Trash
+  Trash,
+  Settings2
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface ProjectSection {
+  id: string;
+  fenceStyleId: string;
+  postStyleId: string;
+  feet: number;
+}
 
 export default function NewEstimatePage() {
   const [step, setStep] = useState(1);
@@ -36,9 +44,12 @@ export default function NewEstimatePage() {
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [jobAddress, setJobAddress] = useState("");
-  const [fenceStyleId, setFenceStyleId] = useState("");
-  const [postStyleId, setPostStyleId] = useState("");
-  const [totalFeet, setTotalFeet] = useState<number>(0);
+  
+  // Multiple Sections State
+  const [sections, setSections] = useState<ProjectSection[]>([
+    { id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0 }
+  ]);
+
   const [enableDemo, setEnableDemo] = useState(false);
   const [demoFeet, setDemoFeet] = useState<number>(0);
   const [gates, setGates] = useState<{ id: string, styleId: string, qty: number }[]>([]);
@@ -54,6 +65,26 @@ export default function NewEstimatePage() {
   const postStyles = useMemo(() => SAMPLE_STYLES.filter(s => s.type === 'post'), []);
   const gateStyles = useMemo(() => SAMPLE_STYLES.filter(s => s.type === 'gate'), []);
 
+  const addSection = () => {
+    setSections([...sections, { id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0 }]);
+  };
+
+  const updateSection = (id: string, updates: Partial<ProjectSection>) => {
+    setSections(sections.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const removeSection = (id: string) => {
+    if (sections.length > 1) {
+      setSections(sections.filter(s => s.id !== id));
+    } else {
+      toast({
+        title: "Cannot remove",
+        description: "Project must have at least one fence section.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const addGate = () => {
     setGates([...gates, { id: crypto.randomUUID(), styleId: "", qty: 1 }]);
   };
@@ -68,30 +99,42 @@ export default function NewEstimatePage() {
 
   // Advanced Calculation Logic
   const totals = useMemo(() => {
-    const fenceStyle = fenceStyles.find(s => s.id === fenceStyleId);
-    const postStyle = postStyles.find(s => s.id === postStyleId);
-    
-    // Material Costs
-    let fenceMaterialCost = (fenceStyle?.costPerUnit || 0) * totalFeet;
-    let postMaterialCost = (postStyle?.costPerUnit || 0) * (totalFeet / 8); // Assuming post every 8ft
-    let gateMaterialCost = gates.reduce((acc, g) => {
-      const style = gateStyles.find(gs => gs.id === g.styleId);
-      return acc + (style?.costPerUnit || 0) * g.qty;
-    }, 0);
+    let materialsTotal = 0;
+    let totalManHours = 0;
+    let totalFeetCount = 0;
 
-    const materialsTotal = fenceMaterialCost + postMaterialCost + gateMaterialCost;
-
-    // Labor Logic
-    // Based on settings logic: 3 men crew, 100ft/day = 24 man hours per 100ft (0.24 hrs/ft)
+    // Standard Rates (should ideally pull from settings in real app)
     const productionRate = 0.24; // man hours per foot
     const gateLaborRate = 4; // 4 man hours per gate
     const demoRate = 0.1; // 0.1 man hours per foot demo
+
+    // Calculate per section
+    sections.forEach(sec => {
+      const fStyle = fenceStyles.find(s => s.id === sec.fenceStyleId);
+      const pStyle = postStyles.find(s => s.id === sec.postStyleId);
+      
+      const fCost = (fStyle?.costPerUnit || 0) * sec.feet;
+      const pCost = (pStyle?.costPerUnit || 0) * (sec.feet / 8);
+      
+      materialsTotal += (fCost + pCost);
+      totalManHours += (sec.feet * productionRate);
+      totalFeetCount += sec.feet;
+    });
+
+    // Gate Costs
+    const gateMaterialCost = gates.reduce((acc, g) => {
+      const style = gateStyles.find(gs => gs.id === g.styleId);
+      return acc + (style?.costPerUnit || 0) * g.qty;
+    }, 0);
+    materialsTotal += gateMaterialCost;
     
-    const fenceManHours = totalFeet * productionRate;
     const gateManHours = gates.reduce((acc, g) => acc + (g.qty * gateLaborRate), 0);
+    totalManHours += gateManHours;
+
+    // Demo Costs
     const demoManHours = enableDemo ? (demoFeet * demoRate) : 0;
-    
-    const totalManHours = fenceManHours + gateManHours + demoManHours;
+    totalManHours += demoManHours;
+
     const avgHourlyRate = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
     const laborCost = totalManHours * avgHourlyRate;
 
@@ -107,6 +150,7 @@ export default function NewEstimatePage() {
     const finalTotal = sellTotal + tax;
 
     return {
+      totalFeetCount,
       materialsTotal,
       laborCost,
       totalManHours,
@@ -116,7 +160,7 @@ export default function NewEstimatePage() {
       finalTotal,
       deposit: finalTotal * 0.5
     };
-  }, [fenceStyleId, postStyleId, totalFeet, gates, enableDemo, demoFeet, pricingMethod, pricingValue, fenceStyles, postStyles, gateStyles]);
+  }, [sections, gates, enableDemo, demoFeet, pricingMethod, pricingValue, fenceStyles, postStyles, gateStyles]);
 
   const handleApplyAI = (method: 'margin' | 'markup', value: number) => {
     setPricingMethod(method);
@@ -209,88 +253,95 @@ export default function NewEstimatePage() {
             </Card>
           )}
 
-          {/* Step 2: Product Selection */}
+          {/* Step 2: Project Sections (The new complex layout logic) */}
           {step === 2 && (
-            <Card className="border-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Hammer className="h-5 w-5 text-primary" /> Product Selection
-                </CardTitle>
-                <CardDescription>Pick the core fence and post styles for this project.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <Label className="text-lg font-bold">Fence Style</Label>
-                    <div className="grid gap-3">
-                      {fenceStyles.map(s => (
-                        <div 
-                          key={s.id}
-                          onClick={() => setFenceStyleId(s.id)}
-                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${fenceStyleId === s.id ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="font-bold">{s.name}</span>
-                            {fenceStyleId === s.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-2">{s.description}</p>
-                          <Badge variant="secondary">${s.costPerUnit}/ft</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <Label className="text-lg font-bold">Post Type</Label>
-                    <div className="grid gap-3">
-                      {postStyles.map(s => (
-                        <div 
-                          key={s.id}
-                          onClick={() => setPostStyleId(s.id)}
-                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${postStyleId === s.id ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="font-bold">{s.name}</span>
-                            {postStyleId === s.id && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                          </div>
-                          <Badge variant="secondary">${s.costPerUnit}/unit</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Project Sections</h3>
+                  <p className="text-sm text-muted-foreground">Break your project down into segments with different styles and lengths.</p>
                 </div>
-              </CardContent>
-            </Card>
+                <Button onClick={addSection} variant="outline" size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" /> Add Segment
+                </Button>
+              </div>
+
+              {sections.map((sec, idx) => (
+                <Card key={sec.id} className="border-2">
+                  <CardHeader className="flex flex-row items-center justify-between py-4 bg-secondary/20">
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider">
+                      Segment #{idx + 1}
+                    </CardTitle>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive" 
+                      onClick={() => removeSection(sec.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="pt-6 space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label>Fence Style</Label>
+                        <Select value={sec.fenceStyleId} onValueChange={(v) => updateSection(sec.id, { fenceStyleId: v })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Style" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fenceStyles.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name} (${s.costPerUnit}/ft)</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Post Type</Label>
+                        <Select value={sec.postStyleId} onValueChange={(v) => updateSection(sec.id, { postStyleId: v })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Post" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {postStyles.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name} (${s.costPerUnit}/unit)</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-secondary/30 p-4 rounded-xl flex items-center justify-between gap-6">
+                      <div className="space-y-1">
+                        <h4 className="font-bold">Segment Length</h4>
+                        <p className="text-xs text-muted-foreground">How many feet for this specific segment?</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Input 
+                          type="number" 
+                          className="w-24 h-10 text-lg font-black text-center" 
+                          value={sec.feet}
+                          onChange={(e) => updateSection(sec.id, { feet: parseFloat(e.target.value) || 0 })}
+                        />
+                        <span className="font-bold text-sm">FT</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
 
-          {/* Step 3: Scope & Demo */}
+          {/* Step 3: Scope & Demo (Now just extra settings) */}
           {step === 3 && (
             <Card className="border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Ruler className="h-5 w-5 text-primary" /> Project Scope
+                  <Settings2 className="h-5 w-5 text-primary" /> Additional Settings
                 </CardTitle>
-                <CardDescription>Enter measurements and demolition details.</CardDescription>
+                <CardDescription>Demolition and site preparation details.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-8">
-                <div className="p-6 bg-secondary/30 rounded-2xl flex items-center justify-between gap-6">
-                  <div className="space-y-1">
-                    <h4 className="font-bold">Total Fence Length</h4>
-                    <p className="text-sm text-muted-foreground">The total linear footage of the new install.</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Input 
-                      type="number" 
-                      className="w-32 h-14 text-2xl font-black text-center" 
-                      value={totalFeet}
-                      onChange={(e) => setTotalFeet(parseFloat(e.target.value) || 0)}
-                    />
-                    <span className="font-bold text-xl">FT</span>
-                  </div>
-                </div>
-
-                <Separator />
-
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
@@ -413,7 +464,7 @@ export default function NewEstimatePage() {
                       estimateData={{
                         materialCosts: totals.materialsTotal,
                         laborCosts: totals.laborCost,
-                        styleIds: [fenceStyleId, postStyleId]
+                        styleIds: sections.map(s => s.fenceStyleId).filter(Boolean)
                       }} 
                     />
                   </div>
@@ -430,19 +481,21 @@ export default function NewEstimatePage() {
                 <CardContent className="space-y-4">
                   <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Materials Detail</h4>
+                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Materials Summary</h4>
                       <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Fence Pickets/Rails</span>
-                          <span className="font-mono">${((fenceStyles.find(s => s.id === fenceStyleId)?.costPerUnit || 0) * totalFeet).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Post Units</span>
-                          <span className="font-mono">${((postStyles.find(s => s.id === postStyleId)?.costPerUnit || 0) * (totalFeet / 8)).toFixed(2)}</span>
-                        </div>
+                        {sections.map((sec, i) => (
+                          <div key={sec.id} className="flex justify-between text-sm">
+                            <span className="text-slate-400">
+                              Segment #{i+1} ({fenceStyles.find(fs => fs.id === sec.fenceStyleId)?.name || 'Style'})
+                            </span>
+                            <span className="font-mono">
+                              ${((fenceStyles.find(fs => fs.id === sec.fenceStyleId)?.costPerUnit || 0) * sec.feet + (postStyles.find(ps => ps.id === sec.postStyleId)?.costPerUnit || 0) * (sec.feet / 8)).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-400">Gate Material</span>
-                          <span className="font-mono">${(totals.materialsTotal - ((fenceStyles.find(s => s.id === fenceStyleId)?.costPerUnit || 0) * totalFeet) - ((postStyles.find(s => s.id === postStyleId)?.costPerUnit || 0) * (totalFeet / 8))).toFixed(2)}</span>
+                          <span className="font-mono">${(gates.reduce((acc, g) => acc + (gateStyles.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * g.qty, 0)).toFixed(2)}</span>
                         </div>
                         <Separator className="bg-slate-800" />
                         <div className="flex justify-between font-bold text-primary">
@@ -504,12 +557,12 @@ export default function NewEstimatePage() {
                   <span className="font-bold">{selectedCustomer?.name || '---'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Style</span>
-                  <span className="font-bold">{fenceStyles.find(s => s.id === fenceStyleId)?.name || '---'}</span>
+                  <span className="text-muted-foreground">Segments</span>
+                  <span className="font-bold">{sections.length} Areas</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Quantity</span>
-                  <span className="font-bold">{totalFeet} FT</span>
+                  <span className="text-muted-foreground">Total Footage</span>
+                  <span className="font-bold">{totals.totalFeetCount} FT</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Gates</span>

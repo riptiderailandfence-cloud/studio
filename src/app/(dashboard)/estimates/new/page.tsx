@@ -21,7 +21,9 @@ import {
   Eye,
   CheckCircle2,
   Trash,
-  Settings2
+  Settings2,
+  Briefcase,
+  TrendingUp
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -60,8 +62,12 @@ export default function NewEstimatePage() {
   const [enableDemo, setEnableDemo] = useState(false);
   const [demoFeet, setDemoFeet] = useState<number>(0);
   const [gates, setGates] = useState<GateEntry[]>([]);
-  const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('margin');
-  const [pricingValue, setPricingValue] = useState<number>(0.3);
+  
+  // Pricing & Breakdown State
+  const [overheadPct, setOverheadPct] = useState<number>(0.10); // Default 10%
+  const [profitPct, setProfitPct] = useState<number>(0.20); // Default 20%
+  const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
+  const [pricingValue, setPricingValue] = useState<number>(0.3); // Used as a fallback or combined strategy
 
   useEffect(() => {
     setMounted(true);
@@ -110,7 +116,7 @@ export default function NewEstimatePage() {
     let totalManHours = 0;
     let totalFeetCount = 0;
 
-    // Standard Rates (should ideally pull from settings in real app)
+    // Standard Rates
     const productionRate = 0.24; // man hours per foot
     const gateLaborRate = 4; // 4 man hours per gate
     const demoRate = 0.1; // 0.1 man hours per foot demo
@@ -146,12 +152,14 @@ export default function NewEstimatePage() {
     const laborCost = totalManHours * avgHourlyRate;
 
     const baseCost = materialsTotal + laborCost;
-    let sellTotal = 0;
-    if (pricingMethod === 'markup') {
-      sellTotal = baseCost * (1 + pricingValue);
-    } else {
-      sellTotal = baseCost / (1 - pricingValue);
-    }
+    
+    // Stacked Overhead & Profit Calculation
+    const overheadAmount = baseCost * overheadPct;
+    const subtotalWithOH = baseCost + overheadAmount;
+    const profitAmount = subtotalWithOH * profitPct;
+    
+    // Final Selling Total (before tax)
+    const sellTotal = subtotalWithOH + profitAmount;
 
     const tax = sellTotal * 0.08;
     const finalTotal = sellTotal + tax;
@@ -162,16 +170,20 @@ export default function NewEstimatePage() {
       laborCost,
       totalManHours,
       baseCost,
+      overheadAmount,
+      profitAmount,
       sellTotal,
       tax,
       finalTotal,
       deposit: finalTotal * 0.5
     };
-  }, [sections, gates, enableDemo, demoFeet, pricingMethod, pricingValue, fenceStyles, postStyles, gateStyles]);
+  }, [sections, gates, enableDemo, demoFeet, overheadPct, profitPct, fenceStyles, postStyles, gateStyles]);
 
   const handleApplyAI = (method: 'margin' | 'markup', value: number) => {
     setPricingMethod(method);
     setPricingValue(value);
+    // If AI provides a single value, we might want to map it to profit for simplicity in this stacked UI
+    setProfitPct(value);
   };
 
   if (!mounted) return null;
@@ -467,8 +479,31 @@ export default function NewEstimatePage() {
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><Briefcase className="h-3 w-3" /> Overhead %</Label>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          value={overheadPct * 100} 
+                          onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100)} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Profit %</Label>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          value={profitPct * 100} 
+                          onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100)} 
+                        />
+                      </div>
+                    </div>
+                    
+                    <Separator className="my-2" />
+                    
                     <div className="space-y-2">
-                      <Label>Calculation Method</Label>
+                      <Label>Calculation Method (Standard)</Label>
                       <Select value={pricingMethod} onValueChange={(v: any) => setPricingMethod(v)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -478,15 +513,6 @@ export default function NewEstimatePage() {
                           <SelectItem value="markup">Markup %</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{pricingMethod === 'margin' ? 'Target Margin %' : 'Markup %'}</Label>
-                      <Input 
-                        type="number" 
-                        step="0.01" 
-                        value={pricingValue * 100} 
-                        onChange={(e) => setPricingValue(parseFloat(e.target.value) / 100)} 
-                      />
                     </div>
                   </div>
                   <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20">
@@ -512,45 +538,43 @@ export default function NewEstimatePage() {
                 <CardContent className="space-y-4">
                   <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Materials Summary</h4>
+                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Base Production Costs</h4>
                       <div className="space-y-2">
-                        {sections.map((sec, i) => (
-                          <div key={sec.id} className="flex justify-between text-sm">
-                            <span className="text-slate-400">
-                              Segment #{i+1} ({fenceStyles.find(fs => fs.id === sec.fenceStyleId)?.name || 'Style'})
-                            </span>
-                            <span className="font-mono">
-                              ${((fenceStyles.find(fs => fs.id === sec.fenceStyleId)?.costPerUnit || 0) * sec.feet + (postStyles.find(ps => ps.id === sec.postStyleId)?.costPerUnit || 0) * (sec.feet / 8)).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Gate Material</span>
-                          <span className="font-mono">${(gates.reduce((acc, g) => acc + (gateStyles.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * g.qty, 0)).toFixed(2)}</span>
+                          <span className="text-slate-400">Materials Total</span>
+                          <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-400">Labor Total</span>
+                          <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
                         </div>
                         <Separator className="bg-slate-800" />
-                        <div className="flex justify-between font-bold text-primary">
-                          <span>Total Materials</span>
-                          <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
+                        <div className="flex justify-between font-bold text-slate-300">
+                          <span>Project Base Cost</span>
+                          <span className="font-mono">${totals.baseCost.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
                     
                     <div className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Labor & Efficiency</h4>
+                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Business Strategy</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Estimated Man-Hours</span>
-                          <span className="font-mono">{totals.totalManHours.toFixed(1)} hrs</span>
+                          <span className="text-slate-400 flex items-center gap-1">
+                            Overhead ({(overheadPct * 100).toFixed(0)}%)
+                          </span>
+                          <span className="font-mono text-amber-400">+${totals.overheadAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Avg Labor Rate</span>
-                          <span className="font-mono">${(SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1)).toFixed(2)}/hr</span>
+                          <span className="text-slate-400 flex items-center gap-1">
+                            Profit ({(profitPct * 100).toFixed(0)}%)
+                          </span>
+                          <span className="font-mono text-green-400">+${totals.profitAmount.toFixed(2)}</span>
                         </div>
                         <Separator className="bg-slate-800" />
-                        <div className="flex justify-between font-bold text-amber-500">
-                          <span>Total Labor Cost</span>
-                          <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
+                        <div className="flex justify-between font-bold text-primary">
+                          <span>Net Sell Price</span>
+                          <span className="font-mono">${totals.sellTotal.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -558,12 +582,12 @@ export default function NewEstimatePage() {
                 </CardContent>
                 <CardFooter className="bg-slate-800/50 p-6 flex flex-col gap-2">
                   <div className="flex justify-between w-full text-sm">
-                    <span className="text-slate-400">Project Base Cost</span>
-                    <span className="font-mono">${totals.baseCost.toFixed(2)}</span>
+                    <span className="text-slate-400">Taxes (8% Sales Tax)</span>
+                    <span className="font-mono">${totals.tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between w-full text-lg font-black pt-2 border-t border-slate-700">
-                    <span>FINAL SELL PRICE</span>
-                    <span className="font-mono text-primary">${totals.sellTotal.toFixed(2)}</span>
+                    <span>FINAL CUSTOMER QUOTE</span>
+                    <span className="font-mono text-primary">${totals.finalTotal.toFixed(2)}</span>
                   </div>
                 </CardFooter>
               </Card>

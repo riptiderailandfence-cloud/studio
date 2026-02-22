@@ -23,7 +23,9 @@ import {
   FlaskConical,
   Users,
   Timer,
-  Zap
+  Zap,
+  TrendingUp,
+  Briefcase
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -173,6 +175,19 @@ export default function SettingsPage() {
                   <div className="grid gap-2">
                     <Label>Material Tax Rate (%)</Label>
                     <Input id="material-tax" type="number" step="0.01" defaultValue="0" placeholder="e.g. 6.0" />
+                  </div>
+                </div>
+
+                <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6 border-t mt-4">
+                  <div className="grid gap-2">
+                    <Label className="flex items-center gap-2"><Briefcase className="h-3 w-3" /> Default Overhead (%)</Label>
+                    <Input type="number" defaultValue="10" placeholder="e.g. 10" />
+                    <p className="text-[11px] text-muted-foreground italic">Business expenses not directly related to production (rent, utilities, etc.)</p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Default Profit (%)</Label>
+                    <Input type="number" defaultValue="20" placeholder="e.g. 20" />
+                    <p className="text-[11px] text-muted-foreground italic">Desired net profit margin on the total project.</p>
                   </div>
                 </div>
               </div>

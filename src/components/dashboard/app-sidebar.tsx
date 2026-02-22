@@ -12,7 +12,8 @@ import {
   HardHat,
   CalendarDays,
   ChevronRight,
-  Briefcase
+  Briefcase,
+  TrendingUp
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,7 @@ const navigationItems = [
   { title: "CRM (Customers)", url: "/crm", icon: Users },
   { title: "Schedule", url: "/schedule", icon: CalendarDays },
   { title: "Jobs (Job Packs)", url: "/jobs", icon: Briefcase },
+  { title: "Job Costing", url: "/job-costing", icon: TrendingUp },
   { title: "Materials", url: "/materials", icon: Package },
   { 
     title: "Styles & Types", 

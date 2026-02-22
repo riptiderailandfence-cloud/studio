@@ -1,4 +1,4 @@
-import { Tenant, Material, Style, Customer, CrewMember, ScheduleEvent } from './types';
+import { Tenant, Material, Style, Customer, CrewMember, ScheduleEvent, JobPerformance } from './types';
 
 export const SAMPLE_TENANT: Tenant = {
   id: 'tenant_1',
@@ -112,5 +112,50 @@ export const SAMPLE_EVENTS: ScheduleEvent[] = [
     customerId: 'cust_2',
     customerName: 'Jane Smith',
     notes: '6ft Cedar Privacy, 120ft'
+  }
+];
+
+export const SAMPLE_PERFORMANCE: JobPerformance[] = [
+  {
+    id: 'perf_1',
+    estimateId: 'EST-9921',
+    customerName: 'John Doe',
+    estimatedMaterials: 2200,
+    actualMaterials: 2150,
+    estimatedLabor: 1500,
+    actualLabor: 1800,
+    totalEstimated: 3700,
+    totalActual: 3950,
+    variance: -250,
+    actualMargin: 0.12,
+    status: 'completed'
+  },
+  {
+    id: 'perf_2',
+    estimateId: 'EST-8842',
+    customerName: 'Jane Smith',
+    estimatedMaterials: 8500,
+    actualMaterials: 7900,
+    estimatedLabor: 4000,
+    actualLabor: 3800,
+    totalEstimated: 12500,
+    totalActual: 11700,
+    variance: 800,
+    actualMargin: 0.28,
+    status: 'completed'
+  },
+  {
+    id: 'perf_3',
+    estimateId: 'EST-7751',
+    customerName: 'Bob Builder',
+    estimatedMaterials: 450,
+    actualMaterials: 520,
+    estimatedLabor: 400,
+    actualLabor: 600,
+    totalEstimated: 850,
+    totalActual: 1120,
+    variance: -270,
+    actualMargin: -0.05,
+    status: 'completed'
   }
 ];

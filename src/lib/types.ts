@@ -117,3 +117,18 @@ export interface ScheduleEvent {
   customerName?: string;
   notes?: string;
 }
+
+export interface JobPerformance {
+  id: string;
+  estimateId: string;
+  customerName: string;
+  estimatedMaterials: number;
+  actualMaterials: number;
+  estimatedLabor: number;
+  actualLabor: number;
+  totalEstimated: number;
+  totalActual: number;
+  variance: number;
+  actualMargin: number;
+  status: 'completed' | 'in_progress';
+}

@@ -45,7 +45,10 @@ interface BOMItemWithId extends BOMItem {
   uiId: string;
 }
 
-// Isolated component for each BOM row to handle its own Popover state and search focus
+/**
+ * Isolated component for each BOM row to handle its own Popover state and search focus.
+ * This prevents the parent Dialog from intercepting keystrokes intended for the search box.
+ */
 function BOMItemRow({ 
   item, 
   updateBOMItem, 
@@ -57,17 +60,6 @@ function BOMItemRow({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Focus the search input whenever the popover opens
-  useEffect(() => {
-    if (open) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [open]);
 
   const filteredMaterials = useMemo(() => {
     const s = search.toLowerCase().trim();
@@ -83,7 +75,7 @@ function BOMItemRow({
       <div className="col-span-6 space-y-1.5">
         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
         
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={setOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button 
               variant="outline" 
@@ -100,19 +92,19 @@ function BOMItemRow({
           <PopoverContent 
             className="w-[300px] p-0 shadow-xl" 
             align="start"
-            // Stop the dialog focus trap from reclaiming focus
-            onOpenAutoFocus={(e) => e.preventDefault()}
+            // Ensure keyboard events stay within the popover's context
+            onKeyDown={(e) => e.stopPropagation()}
           >
             <div className="p-2 border-b">
               <div className="relative flex items-center">
                 <SearchIcon className="absolute left-2 h-4 w-4 opacity-50" />
                 <Input
-                  ref={inputRef}
+                  autoFocus
                   placeholder="Search materials..."
                   className="h-9 pl-8 w-full"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  // CRITICAL: Stop propagation so the Dialog doesn't eat these keystrokes
+                  // CRITICAL: Stop propagation across all key events
                   onKeyDown={(e) => e.stopPropagation()}
                   onKeyUp={(e) => e.stopPropagation()}
                   onKeyPress={(e) => e.stopPropagation()}

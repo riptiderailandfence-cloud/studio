@@ -10,6 +10,7 @@ import {
   UserCircle, 
   Settings,
   HardHat,
+  CalendarDays,
   ChevronRight
 } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ import { usePathname } from "next/navigation";
 const navigationItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "CRM (Customers)", url: "/crm", icon: Users },
+  { title: "Schedule", url: "/schedule", icon: CalendarDays },
   { title: "Materials", url: "/materials", icon: Package },
   { 
     title: "Styles & Types", 

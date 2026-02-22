@@ -107,3 +107,13 @@ export interface CrewMember {
   laborRate?: number; // e.g. per section
   productionRate?: number; // e.g. feet/day
 }
+
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  type: 'estimate' | 'install';
+  date: string;
+  customerId?: string;
+  customerName?: string;
+  notes?: string;
+}

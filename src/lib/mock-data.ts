@@ -1,4 +1,4 @@
-import { Tenant, Material, Style, Customer, CrewMember } from './types';
+import { Tenant, Material, Style, Customer, CrewMember, ScheduleEvent } from './types';
 
 export const SAMPLE_TENANT: Tenant = {
   id: 'tenant_1',
@@ -92,4 +92,25 @@ export const SAMPLE_CUSTOMERS: Customer[] = [
 export const SAMPLE_CREW: CrewMember[] = [
   { id: 'crew_1', tenantId: 'tenant_1', name: 'Mike Foreman', hourlyRate: 45 },
   { id: 'crew_2', tenantId: 'tenant_1', name: 'Steve Laborer', hourlyRate: 25 }
+];
+
+export const SAMPLE_EVENTS: ScheduleEvent[] = [
+  {
+    id: 'event_1',
+    title: 'Estimate: 123 Oak Lane',
+    type: 'estimate',
+    date: new Date().toISOString(),
+    customerId: 'cust_1',
+    customerName: 'John Doe',
+    notes: 'Residential privacy fence'
+  },
+  {
+    id: 'event_2',
+    title: 'Install: 456 Pine St',
+    type: 'install',
+    date: new Date(Date.now() + 86400000 * 2).toISOString(), // 2 days from now
+    customerId: 'cust_2',
+    customerName: 'Jane Smith',
+    notes: '6ft Cedar Privacy, 120ft'
+  }
 ];

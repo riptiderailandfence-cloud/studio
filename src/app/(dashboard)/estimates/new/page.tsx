@@ -68,14 +68,18 @@ export default function NewEstimatePage() {
   // Pricing & Breakdown State
   const [overheadPct, setOverheadPct] = useState<number>(0.10); // Default 10%
   const [profitPct, setProfitPct] = useState<number>(0.20); // Default 20%
-  const [laborRate, setLaborRate] = useState<number>(35); // Base hourly rate from settings/crew
-  const [manualLaborHours, setManualLaborHours] = useState<number | null>(null); // Override for labor hours
+  
+  // Labor Rate: Reference from settings/crew
+  const [laborRate, setLaborRate] = useState<number>(35); 
+  // Labor Hours: Manual adjustment for site conditions
+  const [manualLaborHours, setManualLaborHours] = useState<number | null>(null);
+
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
-  const [pricingValue, setPricingValue] = useState<number>(0.3); // Used as a fallback or combined strategy
+  const [pricingValue, setPricingValue] = useState<number>(0.3);
 
   useEffect(() => {
     setMounted(true);
-    // Initialize labor rate from average of crew
+    // Reference the "Settings" hourly crew rate (simulated by averaging sample crew)
     const avg = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
     setLaborRate(avg);
   }, []);
@@ -123,7 +127,7 @@ export default function NewEstimatePage() {
     let calculatedManHours = 0;
     let totalFeetCount = 0;
 
-    // Standard Rates
+    // Standard Rates (should ideally come from global settings)
     const productionRate = 0.24; // man hours per foot
     const gateLaborRate = 4; // 4 man hours per gate
     const demoRate = 0.1; // 0.1 man hours per foot demo
@@ -155,7 +159,7 @@ export default function NewEstimatePage() {
     const demoManHours = enableDemo ? (demoFeet * demoRate) : 0;
     calculatedManHours += demoManHours;
 
-    // Use manual override if present, otherwise use calculated
+    // Use manual override if present (for difficult site conditions), otherwise use calculated
     const finalManHours = manualLaborHours !== null ? manualLaborHours : calculatedManHours;
     const laborCost = finalManHours * laborRate;
 
@@ -191,7 +195,6 @@ export default function NewEstimatePage() {
   const handleApplyAI = (method: 'margin' | 'markup', value: number) => {
     setPricingMethod(method);
     setPricingValue(value);
-    // If AI provides a single value, we might want to map it to profit for simplicity in this stacked UI
     setProfitPct(value);
   };
 
@@ -559,11 +562,11 @@ export default function NewEstimatePage() {
                           <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
                         </div>
                         
-                        {/* Quick Labor Adjustment Field */}
+                        {/* Quick Labor Adjustment Field: Focus on Labor Hours */}
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm items-center">
                             <span className="text-slate-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" /> Labor Rate (${laborRate}/hr)
+                              <Clock className="h-3 w-3" /> Labor Duration
                             </span>
                             <div className="flex items-center gap-2">
                               <Input 
@@ -575,7 +578,11 @@ export default function NewEstimatePage() {
                               <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Hrs</span>
                             </div>
                           </div>
-                          <div className="flex justify-between text-xs font-mono text-slate-500 pl-4">
+                          <div className="flex justify-between text-[10px] text-slate-500 pl-4 italic">
+                            <span>Rate from Settings:</span>
+                            <span>${laborRate.toFixed(2)}/hr</span>
+                          </div>
+                          <div className="flex justify-between text-xs font-mono text-slate-400 pl-4 border-l border-slate-800 ml-2">
                             <span>Subtotal Labor:</span>
                             <span>${totals.laborCost.toFixed(2)}</span>
                           </div>

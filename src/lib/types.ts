@@ -60,6 +60,7 @@ export interface Style {
   type: 'fence' | 'post' | 'gate';
   category: 'Wood' | 'Chain Link' | 'Aluminum' | 'Vinyl' | 'Other';
   measurementBasis: 'foot' | 'section';
+  sectionLength?: number; // Added section length field
   bom: BOMItem[];
   costPerUnit: number;
 }

@@ -2,17 +2,16 @@
 
 import { useState, useMemo } from "react";
 import { SAMPLE_STYLES, SAMPLE_MATERIALS } from "@/lib/mock-data";
-import { Style, BOMItem } from "@/lib/types";
+import { Style, BOMItem, Material } from "@/lib/types";
 import { 
   Card, 
   CardContent, 
   CardHeader, 
   CardTitle, 
   CardDescription,
-  CardFooter
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Info, Settings2, FilterX, Pencil, Save, X, Trash2 } from "lucide-react";
+import { Plus, Info, Pencil, Save, X, Trash2, LayoutGrid } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StyleOptimizer } from "@/components/styles/style-optimizer";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +34,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 export default function StylesPage() {
   const [styles, setStyles] = useState<Style[]>(SAMPLE_STYLES);
@@ -66,10 +67,46 @@ export default function StylesPage() {
       type: 'fence',
       category: 'Wood',
       measurementBasis: 'foot',
+      sectionLength: 8,
       bom: [],
       costPerUnit: 0
     });
     setIsEditorOpen(true);
+  };
+
+  const addBOMItem = () => {
+    if (!editingStyle) return;
+    const newItem: BOMItem = {
+      materialId: SAMPLE_MATERIALS[0].id,
+      materialName: SAMPLE_MATERIALS[0].name,
+      qtyPerUnit: 1,
+      wastePct: 0.05
+    };
+    setEditingStyle({
+      ...editingStyle,
+      bom: [...editingStyle.bom, newItem]
+    });
+  };
+
+  const updateBOMItem = (index: number, updates: Partial<BOMItem>) => {
+    if (!editingStyle) return;
+    const newBOM = [...editingStyle.bom];
+    
+    if (updates.materialId) {
+      const mat = SAMPLE_MATERIALS.find(m => m.id === updates.materialId);
+      if (mat) {
+        updates.materialName = mat.name;
+      }
+    }
+    
+    newBOM[index] = { ...newBOM[index], ...updates };
+    setEditingStyle({ ...editingStyle, bom: newBOM });
+  };
+
+  const removeBOMItem = (index: number) => {
+    if (!editingStyle) return;
+    const newBOM = editingStyle.bom.filter((_, i) => i !== index);
+    setEditingStyle({ ...editingStyle, bom: newBOM });
   };
 
   const handleSaveStyle = (e: React.FormEvent) => {
@@ -77,20 +114,35 @@ export default function StylesPage() {
     if (!editingStyle) return;
 
     setIsSaving(true);
-    // Simulate API delay
+    
+    // Auto-calculate cost based on BOM
+    let calculatedCost = 0;
+    editingStyle.bom.forEach(item => {
+      const mat = SAMPLE_MATERIALS.find(m => m.id === item.materialId);
+      if (mat) {
+        const qtyWithWaste = item.qtyPerUnit * (1 + (item.wastePct || 0));
+        calculatedCost += mat.unitCost * qtyWithWaste;
+      }
+    });
+
+    const styleToSave = {
+      ...editingStyle,
+      costPerUnit: calculatedCost > 0 ? calculatedCost : editingStyle.costPerUnit
+    };
+
     setTimeout(() => {
-      const isExisting = styles.some(s => s.id === editingStyle.id);
+      const isExisting = styles.some(s => s.id === styleToSave.id);
       if (isExisting) {
-        setStyles(styles.map(s => s.id === editingStyle.id ? editingStyle : s));
+        setStyles(styles.map(s => s.id === styleToSave.id ? styleToSave : s));
         toast({
           title: "Style Updated",
-          description: `${editingStyle.name} has been successfully updated.`,
+          description: `${styleToSave.name} has been successfully updated. Cost recalculated based on materials.`,
         });
       } else {
-        setStyles([...styles, editingStyle]);
+        setStyles([...styles, styleToSave]);
         toast({
           title: "Style Created",
-          description: `${editingStyle.name} has been added to your catalog.`,
+          description: `${styleToSave.name} has been added to your catalog.`,
         });
       }
       setIsSaving(false);
@@ -146,7 +198,9 @@ export default function StylesPage() {
                   <span className="text-sm text-muted-foreground">Estimated Cost:</span>
                   <div className="text-right">
                     <span className="text-xl font-bold text-primary">${style.costPerUnit.toFixed(2)}</span>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">per {style.measurementBasis}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                      per {style.measurementBasis} {style.measurementBasis === 'section' && `(${style.sectionLength}ft)`}
+                    </p>
                   </div>
                 </div>
                 
@@ -159,8 +213,8 @@ export default function StylesPage() {
                     {style.bom.length > 0 ? (
                       style.bom.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-sm py-1 border-b border-dashed border-slate-100 last:border-0">
-                          <span className="text-slate-600">{item.materialName}</span>
-                          <span className="font-mono text-slate-400">x {item.qtyPerUnit}</span>
+                          <span className="text-slate-600 truncate mr-2">{item.materialName}</span>
+                          <span className="font-mono text-slate-400 shrink-0">x {item.qtyPerUnit}</span>
                         </div>
                       ))
                     ) : (
@@ -178,7 +232,7 @@ export default function StylesPage() {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed rounded-xl bg-card border-slate-200">
-          <FilterX className="h-12 w-12 text-muted-foreground opacity-20 mb-4" />
+          <LayoutGrid className="h-12 w-12 text-muted-foreground opacity-20 mb-4" />
           <h3 className="text-lg font-semibold">No styles found</h3>
           <p className="text-muted-foreground max-w-xs mx-auto">
             We couldn't find any styles in the "{categoryFilter}" category.
@@ -195,110 +249,177 @@ export default function StylesPage() {
 
       {/* Style Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <form onSubmit={handleSaveStyle}>
-            <DialogHeader>
+        <DialogContent className="sm:max-w-[700px] h-[90vh] flex flex-col p-0">
+          <form onSubmit={handleSaveStyle} className="flex flex-col h-full">
+            <DialogHeader className="p-6 pb-2">
               <DialogTitle>{editingStyle?.id === crypto.randomUUID() ? "Create New Style" : "Edit Style"}</DialogTitle>
               <DialogDescription>
-                Define the properties and core pricing for this fence style.
+                Build your fence style step-by-step: basics, specifications, and materials.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Style Name</Label>
-                  <Input 
-                    id="name" 
-                    value={editingStyle?.name || ''} 
-                    onChange={(e) => setEditingStyle(prev => prev ? { ...prev, name: e.target.value } : null)}
-                    placeholder="e.g. 6ft Privacy Cedar"
-                    required
-                  />
+            
+            <ScrollArea className="flex-1 px-6">
+              <div className="space-y-6 py-4">
+                {/* Step 1: Basics */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">1. Style Basics</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="name">Style Name</Label>
+                      <Input 
+                        id="name" 
+                        value={editingStyle?.name || ''} 
+                        onChange={(e) => setEditingStyle(prev => prev ? { ...prev, name: e.target.value } : null)}
+                        placeholder="e.g. 6ft Privacy Cedar"
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="category">Category</Label>
+                      <Select 
+                        value={editingStyle?.category} 
+                        onValueChange={(val: any) => setEditingStyle(prev => prev ? { ...prev, category: val } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Wood">Wood</SelectItem>
+                          <SelectItem value="Chain Link">Chain Link</SelectItem>
+                          <SelectItem value="Aluminum">Aluminum</SelectItem>
+                          <SelectItem value="Vinyl">Vinyl</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select 
-                    value={editingStyle?.category} 
-                    onValueChange={(val: any) => setEditingStyle(prev => prev ? { ...prev, category: val } : null)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Wood">Wood</SelectItem>
-                      <SelectItem value="Chain Link">Chain Link</SelectItem>
-                      <SelectItem value="Aluminum">Aluminum</SelectItem>
-                      <SelectItem value="Vinyl">Vinyl</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="type">Style Type</Label>
-                  <Select 
-                    value={editingStyle?.type} 
-                    onValueChange={(val: any) => setEditingStyle(prev => prev ? { ...prev, type: val } : null)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fence">Fence Section</SelectItem>
-                      <SelectItem value="post">Post/Support</SelectItem>
-                      <SelectItem value="gate">Gate/Entry</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="basis">Measurement Basis</Label>
-                  <Select 
-                    value={editingStyle?.measurementBasis} 
-                    onValueChange={(val: any) => setEditingStyle(prev => prev ? { ...prev, measurementBasis: val } : null)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Basis" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="foot">Linear Foot (ft)</SelectItem>
-                      <SelectItem value="section">Standard Section (8ft)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                <Separator />
 
-              <div className="grid gap-2">
-                <Label htmlFor="cost">Base Unit Cost ($)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                  <Input 
-                    id="cost" 
-                    type="number" 
-                    step="0.01"
-                    className="pl-7"
-                    value={editingStyle?.costPerUnit || 0} 
-                    onChange={(e) => setEditingStyle(prev => prev ? { ...prev, costPerUnit: parseFloat(e.target.value) } : null)}
-                    placeholder="0.00"
-                    required
-                  />
+                {/* Step 2: Specs */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">2. Specifications</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="basis">Measurement Basis</Label>
+                      <Select 
+                        value={editingStyle?.measurementBasis} 
+                        onValueChange={(val: any) => setEditingStyle(prev => prev ? { ...prev, measurementBasis: val } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="foot">Linear Foot (ft)</SelectItem>
+                          <SelectItem value="section">Standard Section</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="sectionLength">Section Length (ft)</Label>
+                      <Input 
+                        id="sectionLength" 
+                        type="number"
+                        value={editingStyle?.sectionLength || 0} 
+                        onChange={(e) => setEditingStyle(prev => prev ? { ...prev, sectionLength: parseFloat(e.target.value) } : null)}
+                        placeholder="e.g. 8"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea 
+                      id="description" 
+                      value={editingStyle?.description || ''} 
+                      onChange={(e) => setEditingStyle(prev => prev ? { ...prev, description: e.target.value } : null)}
+                      placeholder="Describe the benefits, durability, and visual style..."
+                      className="min-h-[80px]"
+                    />
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground italic">Note: AI Optimization can suggest refinements based on BOM items later.</p>
-              </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea 
-                  id="description" 
-                  value={editingStyle?.description || ''} 
-                  onChange={(e) => setEditingStyle(prev => prev ? { ...prev, description: e.target.value } : null)}
-                  placeholder="Tell clients about the benefits of this style..."
-                  className="min-h-[80px]"
-                />
+                <Separator />
+
+                {/* Step 3: Materials (BOM) */}
+                <div className="space-y-4 pb-8">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">3. Materials (Bill of Materials)</h4>
+                    <Button type="button" size="sm" variant="outline" onClick={addBOMItem} className="gap-1 h-8">
+                      <Plus className="h-3 w-3" /> Add Material
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {editingStyle?.bom.length === 0 ? (
+                      <div className="text-center py-8 border-2 border-dashed rounded-lg bg-secondary/10">
+                        <p className="text-xs text-muted-foreground italic">No materials added. Build your BOM to auto-calculate costs.</p>
+                      </div>
+                    ) : (
+                      editingStyle?.bom.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
+                          <div className="col-span-6 space-y-1.5">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
+                            <Select 
+                              value={item.materialId} 
+                              onValueChange={(val) => updateBOMItem(idx, { materialId: val })}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SAMPLE_MATERIALS.map(m => (
+                                  <SelectItem key={m.id} value={m.id}>{m.name} (${m.unitCost}/{m.unit})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2 space-y-1.5">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>
+                            <Input 
+                              type="number" 
+                              step="0.1"
+                              className="h-9"
+                              value={item.qtyPerUnit} 
+                              onChange={(e) => updateBOMItem(idx, { qtyPerUnit: parseFloat(e.target.value) })}
+                            />
+                          </div>
+                          <div className="col-span-3 space-y-1.5">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Waste %</Label>
+                            <Input 
+                              type="number" 
+                              step="0.01"
+                              className="h-9"
+                              value={(item.wastePct || 0) * 100} 
+                              onChange={(e) => updateBOMItem(idx, { wastePct: parseFloat(e.target.value) / 100 })}
+                              placeholder="5"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-end">
+                            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeBOMItem(idx)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="bg-primary/5 p-4 rounded-lg border border-primary/10">
+                    <p className="text-[10px] uppercase font-bold text-primary mb-1">Calculated Raw Cost</p>
+                    <p className="text-2xl font-black text-primary">
+                      ${editingStyle?.bom.reduce((acc, item) => {
+                        const mat = SAMPLE_MATERIALS.find(m => m.id === item.materialId);
+                        if (!mat) return acc;
+                        return acc + (mat.unitCost * item.qtyPerUnit * (1 + (item.wastePct || 0)));
+                      }, 0).toFixed(2)}
+                      <span className="text-xs font-medium ml-1">per {editingStyle?.measurementBasis}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-            <DialogFooter>
+            </ScrollArea>
+
+            <DialogFooter className="p-6 border-t bg-secondary/10">
               <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)} className="gap-2">
                 <X className="h-4 w-4" /> Cancel
               </Button>

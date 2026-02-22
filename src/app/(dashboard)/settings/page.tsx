@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,13 +30,23 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { SAMPLE_CREW } from "@/lib/mock-data";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   
+  // Initialize from Crew Data
+  const crewData = useMemo(() => {
+    const size = SAMPLE_CREW.length;
+    const avgRate = size > 0 
+      ? SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / size 
+      : 0;
+    return { size, avgRate };
+  }, []);
+
   // Production Rate Calculator State
-  const [crewSize, setCrewSize] = useState(3);
-  const [avgHourlyRate, setAvgHourlyRate] = useState(35);
+  const [crewSize, setCrewSize] = useState(crewData.size);
+  const [avgHourlyRate, setAvgHourlyRate] = useState(crewData.avgRate);
   const [dailyProduction, setDailyProduction] = useState(100);
 
   const hourlyCrewCost = crewSize * avgHourlyRate;
@@ -144,15 +154,13 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="grid gap-2">
                     <Label>Default Pricing Method</Label>
-                    <Select defaultValue="margin">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="margin">Margin % (Profit / Revenue)</SelectItem>
-                        <SelectItem value="markup">Markup % (Profit / Cost)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      defaultValue="margin"
+                    >
+                      <option value="margin">Margin % (Profit / Revenue)</option>
+                      <option value="markup">Markup % (Profit / Cost)</option>
+                    </select>
                   </div>
                   <div className="grid gap-2">
                     <Label>Default Percentage (%)</Label>
@@ -172,20 +180,27 @@ export default function SettingsPage() {
               <Separator />
 
               <div className="space-y-4">
-                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Timer className="h-4 w-4" /> Production Rates &amp; Efficiency
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Timer className="h-4 w-4" /> Production Rates &amp; Efficiency
+                  </h4>
+                  <Badge variant="secondary" className="font-normal text-[10px]">
+                    Pulled from Crew Management
+                  </Badge>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="grid gap-2">
                     <Label className="flex items-center gap-2">
                       <Users className="h-3 w-3" /> Crew Size
                     </Label>
-                    <Input 
-                      type="number" 
-                      value={crewSize} 
-                      onChange={(e) => setCrewSize(parseInt(e.target.value) || 0)} 
-                      placeholder="e.g. 3" 
-                    />
+                    <div className="flex gap-2">
+                      <Input 
+                        type="number" 
+                        value={crewSize} 
+                        onChange={(e) => setCrewSize(parseInt(e.target.value) || 0)} 
+                        placeholder="e.g. 3" 
+                      />
+                    </div>
                   </div>
                   <div className="grid gap-2">
                     <Label className="flex items-center gap-2">
@@ -215,18 +230,31 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Hourly Crew Cost</p>
                     <p className="text-xl font-bold text-primary">${hourlyCrewCost.toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground">Labor Rate ({crewSize} x ${avgHourlyRate})</p>
+                    <p className="text-[10px] text-muted-foreground">Labor Rate ({crewSize} x ${avgHourlyRate.toFixed(2)})</p>
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Daily Crew Cost</p>
                     <p className="text-xl font-bold text-primary">${dailyCrewCost.toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground">Daily Rate (8 hrs x ${hourlyCrewCost})</p>
+                    <p className="text-[10px] text-muted-foreground">Daily Rate (8 hrs x ${hourlyCrewCost.toFixed(2)})</p>
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-muted-foreground">Calculated Labor / Ft</p>
                     <p className="text-xl font-bold text-primary">${laborCostPerFoot.toFixed(2)}</p>
                     <p className="text-[10px] text-muted-foreground">Base cost to install</p>
                   </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-[10px] h-auto p-0 text-muted-foreground hover:text-primary"
+                    onClick={() => {
+                      setCrewSize(crewData.size);
+                      setAvgHourlyRate(crewData.avgRate);
+                    }}
+                  >
+                    Reset to Crew defaults
+                  </Button>
                 </div>
               </div>
 
@@ -377,17 +405,15 @@ export default function SettingsPage() {
                 </div>
                 <div className="grid gap-2 max-w-xs">
                   <Label>Default Deposit Percentage</Label>
-                  <Select defaultValue="0.5">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select %" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0.25">25% Deposit</SelectItem>
-                      <SelectItem value="0.33">33% Deposit</SelectItem>
-                      <SelectItem value="0.5">50% Deposit</SelectItem>
-                      <SelectItem value="1.0">100% (Pay in Full)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    defaultValue="0.5"
+                  >
+                    <option value="0.25">25% Deposit</option>
+                    <option value="0.33">33% Deposit</option>
+                    <option value="0.5">50% Deposit</option>
+                    <option value="1.0">100% (Pay in Full)</option>
+                  </select>
                 </div>
               </div>
             </CardContent>

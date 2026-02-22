@@ -30,12 +30,52 @@ export const SAMPLE_STYLES: Style[] = [
     name: '6ft Privacy Cedar',
     description: 'Classic vertical cedar privacy fence.',
     type: 'fence',
+    category: 'Wood',
     measurementBasis: 'foot',
     bom: [
       { materialId: 'mat_1', materialName: 'Cedar Picket 6ft', qtyPerUnit: 2.2, wastePct: 0.05 },
       { materialId: 'mat_2', materialName: '2x4x8 Treated Rail', qtyPerUnit: 0.3, wastePct: 0.05 }
     ],
     costPerUnit: 14.50
+  },
+  {
+    id: 'style_2',
+    tenantId: 'tenant_1',
+    name: '6ft White Vinyl Privacy',
+    description: 'Maintenance-free vinyl privacy fence.',
+    type: 'fence',
+    category: 'Vinyl',
+    measurementBasis: 'section',
+    bom: [
+      { materialId: 'mat_5', materialName: 'Vinyl Privacy Panel 6x8', qtyPerUnit: 1, wastePct: 0 }
+    ],
+    costPerUnit: 115.00
+  },
+  {
+    id: 'style_3',
+    tenantId: 'tenant_1',
+    name: '4ft Chain Link',
+    description: 'Standard residential chain link fence.',
+    type: 'fence',
+    category: 'Chain Link',
+    measurementBasis: 'foot',
+    bom: [
+      { materialId: 'mat_7', materialName: '9ga Chain Link Fabric 4ft', qtyPerUnit: 1, wastePct: 0.05 }
+    ],
+    costPerUnit: 8.50
+  },
+  {
+    id: 'style_4',
+    tenantId: 'tenant_1',
+    name: '5ft Black Aluminum',
+    description: 'Elegant black aluminum ornamental fence.',
+    type: 'fence',
+    category: 'Aluminum',
+    measurementBasis: 'foot',
+    bom: [
+      { materialId: 'mat_6', materialName: 'Aluminum Picket 5ft', qtyPerUnit: 4, wastePct: 0 }
+    ],
+    costPerUnit: 28.00
   }
 ];
 

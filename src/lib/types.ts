@@ -58,6 +58,7 @@ export interface Style {
   name: string;
   description: string;
   type: 'fence' | 'post' | 'gate';
+  category: 'Wood' | 'Chain Link' | 'Aluminum' | 'Vinyl' | 'Other';
   measurementBasis: 'foot' | 'section';
   bom: BOMItem[];
   costPerUnit: number;

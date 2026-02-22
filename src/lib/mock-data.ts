@@ -5,6 +5,7 @@ export const SAMPLE_TENANT: Tenant = {
   name: 'Evergreen Fencing Co.',
   settings: {
     pricingMethod: 'margin',
+    biddingMethod: 'footage',
     defaultMargin: 0.3,
     defaultMarkup: 0.45,
     depositPct: 0.5,
@@ -32,6 +33,7 @@ export const SAMPLE_STYLES: Style[] = [
     type: 'fence',
     category: 'Wood',
     measurementBasis: 'foot',
+    sectionLength: 8,
     bom: [
       { materialId: 'mat_1', materialName: 'Cedar Picket 6ft', qtyPerUnit: 2.2, wastePct: 0.05 },
       { materialId: 'mat_2', materialName: '2x4x8 Treated Rail', qtyPerUnit: 0.3, wastePct: 0.05 }
@@ -46,6 +48,7 @@ export const SAMPLE_STYLES: Style[] = [
     type: 'fence',
     category: 'Vinyl',
     measurementBasis: 'section',
+    sectionLength: 8,
     bom: [
       { materialId: 'mat_5', materialName: 'Vinyl Privacy Panel 6x8', qtyPerUnit: 1, wastePct: 0 }
     ],
@@ -59,6 +62,7 @@ export const SAMPLE_STYLES: Style[] = [
     type: 'fence',
     category: 'Chain Link',
     measurementBasis: 'foot',
+    sectionLength: 8,
     bom: [
       { materialId: 'mat_7', materialName: '9ga Chain Link Fabric 4ft', qtyPerUnit: 1, wastePct: 0.05 }
     ],
@@ -72,6 +76,7 @@ export const SAMPLE_STYLES: Style[] = [
     type: 'fence',
     category: 'Aluminum',
     measurementBasis: 'foot',
+    sectionLength: 6,
     bom: [
       { materialId: 'mat_6', materialName: 'Aluminum Picket 5ft', qtyPerUnit: 4, wastePct: 0 }
     ],

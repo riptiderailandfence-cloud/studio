@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_CREW } from "@/lib/mock-data";
+import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_CREW, SAMPLE_TENANT } from "@/lib/mock-data";
 import { Style, Customer } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,7 @@ export default function NewEstimatePage() {
   const [manualLaborHours, setManualLaborHours] = useState<number | null>(null);
 
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
+  const [biddingMethod, setBiddingMethod] = useState<'footage' | 'section'>('footage');
 
   useEffect(() => {
     setMounted(true);
@@ -85,6 +86,7 @@ export default function NewEstimatePage() {
     const avg = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
     setLaborRatePerMember(avg);
     setCrewSize(SAMPLE_CREW.length || 2);
+    setBiddingMethod(SAMPLE_TENANT.settings.biddingMethod || 'footage');
   }, []);
 
   const selectedCustomer = useMemo(() => SAMPLE_CUSTOMERS.find(c => c.id === selectedCustomerId), [selectedCustomerId]);
@@ -129,6 +131,7 @@ export default function NewEstimatePage() {
     let materialsTotal = 0;
     let calculatedManHours = 0;
     let totalFeetCount = 0;
+    let totalSectionsCount = 0;
 
     const sOverhead = isNaN(overheadPct) ? 0 : overheadPct;
     const sProfit = isNaN(profitPct) ? 0 : profitPct;
@@ -142,13 +145,19 @@ export default function NewEstimatePage() {
     sections.forEach(sec => {
       const fStyle = fenceStyles.find(s => s.id === sec.fenceStyleId);
       const pStyle = postStyles.find(s => s.id === sec.postStyleId);
+      const feet = isNaN(sec.feet) ? 0 : sec.feet;
       
-      const fCost = (fStyle?.costPerUnit || 0) * (isNaN(sec.feet) ? 0 : sec.feet);
-      const pCost = (pStyle?.costPerUnit || 0) * ((isNaN(sec.feet) ? 0 : sec.feet) / 8);
+      const fCost = (fStyle?.costPerUnit || 0) * feet;
+      const pCost = (pStyle?.costPerUnit || 0) * (feet / 8);
       
       materialsTotal += (fCost + pCost);
-      calculatedManHours += ((isNaN(sec.feet) ? 0 : sec.feet) * manHoursPerFoot);
-      totalFeetCount += (isNaN(sec.feet) ? 0 : sec.feet);
+      calculatedManHours += (feet * manHoursPerFoot);
+      totalFeetCount += feet;
+      
+      if (fStyle) {
+        const sLength = fStyle.sectionLength || 8;
+        totalSectionsCount += feet / sLength;
+      }
     });
 
     const gateMaterialCost = gates.reduce((acc, g) => {
@@ -185,6 +194,7 @@ export default function NewEstimatePage() {
 
     return {
       totalFeetCount,
+      totalSectionsCount,
       materialsTotal,
       laborCost,
       calculatedManHours,
@@ -527,7 +537,7 @@ export default function NewEstimatePage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Net Profit</Label>
+                        <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Net Profit %</Label>
                         <Input 
                           type="number" 
                           step="0.01" 
@@ -542,17 +552,31 @@ export default function NewEstimatePage() {
                     
                     <Separator className="my-2" />
                     
-                    <div className="space-y-2">
-                      <Label>Calculation Method</Label>
-                      <Select value={pricingMethod} onValueChange={(v: any) => setPricingMethod(v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="margin">Margin %</SelectItem>
-                          <SelectItem value="markup">Markup %</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Calculation Method</Label>
+                        <Select value={pricingMethod} onValueChange={(v: any) => setPricingMethod(v)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="margin">Margin %</SelectItem>
+                            <SelectItem value="markup">Markup %</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Bidding Method</Label>
+                        <Select value={biddingMethod} onValueChange={(v: any) => setBiddingMethod(v)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="footage">Footage</SelectItem>
+                            <SelectItem value="section">Sections</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                   <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20">
@@ -692,8 +716,14 @@ export default function NewEstimatePage() {
                   <span className="font-bold">{sections.length} Areas</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Footage</span>
-                  <span className="font-bold">{totals.totalFeetCount} FT</span>
+                  <span className="text-muted-foreground">
+                    {biddingMethod === 'footage' ? 'Total Footage' : 'Total Sections'}
+                  </span>
+                  <span className="font-bold">
+                    {biddingMethod === 'footage' 
+                      ? `${totals.totalFeetCount} FT` 
+                      : `${Math.ceil(totals.totalSectionsCount)} Sections`}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Gates</span>

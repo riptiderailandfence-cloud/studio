@@ -174,16 +174,22 @@ export default function SettingsPage() {
                     </select>
                   </div>
                   <div className="grid gap-2">
+                    <Label>Default Bidding Method</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      defaultValue="footage"
+                    >
+                      <option value="footage">Footage (Linear Feet)</option>
+                      <option value="section">Sections (Panels)</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-2">
                     <Label>Default Percentage (%)</Label>
                     <Input type="number" defaultValue="30" placeholder="e.g. 30" />
                   </div>
                   <div className="grid gap-2">
                     <Label>Sales Tax Rate (%)</Label>
                     <Input type="number" step="0.01" defaultValue="8.25" placeholder="e.g. 8.25" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Material Tax Rate (%)</Label>
-                    <Input id="material-tax" type="number" step="0.01" defaultValue="0" placeholder="e.g. 6.0" />
                   </div>
                 </div>
 

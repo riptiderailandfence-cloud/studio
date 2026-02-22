@@ -5,6 +5,7 @@ export interface Tenant {
   name: string;
   settings: {
     pricingMethod: 'margin' | 'markup';
+    biddingMethod: 'footage' | 'section';
     defaultMargin: number;
     defaultMarkup: number;
     depositPct: number;
@@ -60,7 +61,7 @@ export interface Style {
   type: 'fence' | 'post' | 'gate';
   category: 'Wood' | 'Chain Link' | 'Aluminum' | 'Vinyl' | 'Other';
   measurementBasis: 'foot' | 'section';
-  sectionLength?: number; // Added section length field
+  sectionLength?: number; 
   bom: BOMItem[];
   costPerUnit: number;
 }
@@ -83,6 +84,7 @@ export interface Estimate {
   jobAddress: string;
   status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'deposit_paid' | 'scheduled' | 'completed';
   pricingMethod: 'margin' | 'markup';
+  biddingMethod: 'footage' | 'section';
   pricingValue: number;
   lineItems: EstimateLineItem[];
   totals: {

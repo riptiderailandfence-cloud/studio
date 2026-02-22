@@ -20,7 +20,10 @@ import {
   Calculator,
   Percent,
   Hammer,
-  FlaskConical
+  FlaskConical,
+  Users,
+  Timer,
+  Zap
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -30,6 +33,15 @@ import { Separator } from "@/components/ui/separator";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
+  
+  // Production Rate Calculator State
+  const [crewSize, setCrewSize] = useState(3);
+  const [avgHourlyRate, setAvgHourlyRate] = useState(35);
+  const [dailyProduction, setDailyProduction] = useState(100);
+
+  const hourlyCrewCost = crewSize * avgHourlyRate;
+  const dailyCrewCost = hourlyCrewCost * 8;
+  const laborCostPerFoot = dailyProduction > 0 ? dailyCrewCost / dailyProduction : 0;
 
   const handleSave = () => {
     setLoading(true);
@@ -127,7 +139,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-8">
               <div className="space-y-4">
                 <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Percent className="h-4 w-4" /> Pricing & Tax
+                  <Percent className="h-4 w-4" /> Pricing &amp; Tax
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="grid gap-2">
@@ -152,7 +164,68 @@ export default function SettingsPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label>Material Tax Rate (%)</Label>
-                    <Input type="number" step="0.01" defaultValue="0" placeholder="e.g. 6.0" />
+                    <Input id="material-tax" type="number" step="0.01" defaultValue="0" placeholder="e.g. 6.0" />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Timer className="h-4 w-4" /> Production Rates &amp; Efficiency
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid gap-2">
+                    <Label className="flex items-center gap-2">
+                      <Users className="h-3 w-3" /> Crew Size
+                    </Label>
+                    <Input 
+                      type="number" 
+                      value={crewSize} 
+                      onChange={(e) => setCrewSize(parseInt(e.target.value) || 0)} 
+                      placeholder="e.g. 3" 
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="flex items-center gap-2">
+                      Avg. Hourly Rate / Member
+                    </Label>
+                    <Input 
+                      type="number" 
+                      value={avgHourlyRate} 
+                      onChange={(e) => setAvgHourlyRate(parseFloat(e.target.value) || 0)} 
+                      placeholder="e.g. 35" 
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="flex items-center gap-2">
+                      <Zap className="h-3 w-3" /> Production / Day (ft)
+                    </Label>
+                    <Input 
+                      type="number" 
+                      value={dailyProduction} 
+                      onChange={(e) => setDailyProduction(parseFloat(e.target.value) || 0)} 
+                      placeholder="e.g. 100" 
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/10 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Hourly Crew Cost</p>
+                    <p className="text-xl font-bold text-primary">${hourlyCrewCost.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground">Labor Rate ({crewSize} x ${avgHourlyRate})</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Daily Crew Cost</p>
+                    <p className="text-xl font-bold text-primary">${dailyCrewCost.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground">Daily Rate (8 hrs x ${hourlyCrewCost})</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Calculated Labor / Ft</p>
+                    <p className="text-xl font-bold text-primary">${laborCostPerFoot.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground">Base cost to install</p>
                   </div>
                 </div>
               </div>
@@ -165,9 +238,9 @@ export default function SettingsPage() {
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="grid gap-2">
-                    <Label>Labor Multiplier</Label>
+                    <Label>Labor Multiplier Override</Label>
                     <Input type="number" step="0.1" defaultValue="0.4" placeholder="e.g. 0.4 (40% of material cost)" />
-                    <p className="text-[11px] text-muted-foreground italic">Automatically adds this percentage of material costs as estimated labor.</p>
+                    <p className="text-[11px] text-muted-foreground italic">If production rates aren't used, fallback to this percentage of material costs.</p>
                   </div>
                   <div className="grid gap-2">
                     <Label>Min. Job Fee ($)</Label>
@@ -180,7 +253,7 @@ export default function SettingsPage() {
 
               <div className="space-y-4">
                 <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <FlaskConical className="h-4 w-4" /> Experience & Demo
+                  <FlaskConical className="h-4 w-4" /> Experience &amp; Demo
                 </h4>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -211,7 +284,7 @@ export default function SettingsPage() {
         <TabsContent value="templates" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Estimate & Invoice Templates</CardTitle>
+              <CardTitle>Estimate &amp; Invoice Templates</CardTitle>
               <CardDescription>Customize the documents and emails your clients receive.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

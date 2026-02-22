@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -67,7 +68,8 @@ export default function NewEstimatePage() {
   // Pricing & Breakdown State
   const [overheadPct, setOverheadPct] = useState<number>(0.10); // Default 10%
   const [profitPct, setProfitPct] = useState<number>(0.20); // Default 20%
-  const [laborRate, setLaborRate] = useState<number>(35); // Default hourly rate
+  const [laborRate, setLaborRate] = useState<number>(35); // Base hourly rate from settings/crew
+  const [manualLaborHours, setManualLaborHours] = useState<number | null>(null); // Override for labor hours
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
   const [pricingValue, setPricingValue] = useState<number>(0.3); // Used as a fallback or combined strategy
 
@@ -118,7 +120,7 @@ export default function NewEstimatePage() {
   // Advanced Calculation Logic
   const totals = useMemo(() => {
     let materialsTotal = 0;
-    let totalManHours = 0;
+    let calculatedManHours = 0;
     let totalFeetCount = 0;
 
     // Standard Rates
@@ -135,7 +137,7 @@ export default function NewEstimatePage() {
       const pCost = (pStyle?.costPerUnit || 0) * (sec.feet / 8);
       
       materialsTotal += (fCost + pCost);
-      totalManHours += (sec.feet * productionRate);
+      calculatedManHours += (sec.feet * productionRate);
       totalFeetCount += sec.feet;
     });
 
@@ -147,13 +149,15 @@ export default function NewEstimatePage() {
     materialsTotal += gateMaterialCost;
     
     const gateManHours = gates.reduce((acc, g) => acc + (g.qty * gateLaborRate), 0);
-    totalManHours += gateManHours;
+    calculatedManHours += gateManHours;
 
     // Demo Costs
     const demoManHours = enableDemo ? (demoFeet * demoRate) : 0;
-    totalManHours += demoManHours;
+    calculatedManHours += demoManHours;
 
-    const laborCost = totalManHours * laborRate;
+    // Use manual override if present, otherwise use calculated
+    const finalManHours = manualLaborHours !== null ? manualLaborHours : calculatedManHours;
+    const laborCost = finalManHours * laborRate;
 
     const baseCost = materialsTotal + laborCost;
     
@@ -172,7 +176,8 @@ export default function NewEstimatePage() {
       totalFeetCount,
       materialsTotal,
       laborCost,
-      totalManHours,
+      calculatedManHours,
+      finalManHours,
       baseCost,
       overheadAmount,
       profitAmount,
@@ -181,7 +186,7 @@ export default function NewEstimatePage() {
       finalTotal,
       deposit: finalTotal * 0.5
     };
-  }, [sections, gates, enableDemo, demoFeet, overheadPct, profitPct, laborRate, fenceStyles, postStyles, gateStyles]);
+  }, [sections, gates, enableDemo, demoFeet, overheadPct, profitPct, laborRate, manualLaborHours, fenceStyles, postStyles, gateStyles]);
 
   const handleApplyAI = (method: 'margin' | 'markup', value: number) => {
     setPricingMethod(method);
@@ -558,17 +563,16 @@ export default function NewEstimatePage() {
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm items-center">
                             <span className="text-slate-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" /> Labor ({totals.totalManHours.toFixed(1)} hrs)
+                              <Clock className="h-3 w-3" /> Labor Rate (${laborRate}/hr)
                             </span>
                             <div className="flex items-center gap-2">
-                              <span className="text-slate-500 text-[10px] font-bold">$</span>
                               <Input 
                                 type="number" 
                                 className="w-16 h-7 bg-slate-800 border-slate-700 text-right text-xs px-2 focus:ring-primary"
-                                value={laborRate}
-                                onChange={(e) => setLaborRate(parseFloat(e.target.value) || 0)}
+                                value={totals.finalManHours.toFixed(1)}
+                                onChange={(e) => setManualLaborHours(parseFloat(e.target.value) || 0)}
                               />
-                              <span className="text-slate-500 text-[10px] font-bold">/hr</span>
+                              <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Hrs</span>
                             </div>
                           </div>
                           <div className="flex justify-between text-xs font-mono text-slate-500 pl-4">

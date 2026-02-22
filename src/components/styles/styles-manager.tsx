@@ -228,6 +228,16 @@ export function StylesManager({ type }: StylesManagerProps) {
     setIsEditorOpen(true);
   };
 
+  const handleDelete = (id: string) => {
+    const styleToDelete = styles.find(s => s.id === id);
+    setStyles(styles.filter(s => s.id !== id));
+    toast({
+      title: "Style Removed",
+      description: `${styleToDelete?.name || 'Style'} has been deleted from your catalog.`,
+      variant: "destructive"
+    });
+  };
+
   const handleAddNew = () => {
     setEditingStyle({
       id: crypto.randomUUID(),
@@ -349,9 +359,12 @@ export function StylesManager({ type }: StylesManagerProps) {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredStyles.map((style) => (
             <Card key={style.id} className="relative overflow-hidden group border-slate-200">
-              <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                 <Button size="icon" variant="secondary" onClick={() => handleEdit(style)}>
                   <Pencil className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="destructive" onClick={() => handleDelete(style.id)}>
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
               <CardHeader>

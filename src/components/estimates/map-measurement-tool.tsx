@@ -29,6 +29,7 @@ import {
   MapControl, 
   ControlPosition 
 } from "@vis.gl/react-google-maps";
+import { useToast } from "@/hooks/use-toast";
 
 interface MapMeasurementToolProps {
   onApply: (feet: number) => void;
@@ -39,6 +40,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   const map = useMap();
   const geometryLib = useMapsLibrary("geometry");
   const placesLib = useMapsLibrary("places");
+  const { toast } = useToast();
   
   const [points, setPoints] = useState<google.maps.LatLngLiteral[]>([]);
   const [totalFeet, setTotalFeet] = useState(0);
@@ -116,8 +118,36 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
     if (!searchQuery.trim() || !placesLib || !map) return;
 
     setIsSearching(true);
-    const service = new google.maps.places.PlacesService(map);
     
+    try {
+      // Prioritize Places API (New) if available
+      // @ts-ignore - 'Place' is available in modern versions of the library
+      if (placesLib.Place) {
+        // @ts-ignore
+        const { places } = await placesLib.Place.searchByText({
+          textQuery: searchQuery,
+          fields: ['location', 'viewport'],
+        });
+
+        if (places && places.length > 0) {
+          const place = places[0];
+          if (place.viewport) {
+            map.fitBounds(place.viewport);
+          } else if (place.location) {
+            map.setCenter(place.location);
+            map.setZoom(20);
+          }
+          setPoints([]);
+          setIsSearching(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Places API (New) failed, falling back to legacy service:", err);
+    }
+
+    // Fallback to legacy PlacesService
+    const service = new google.maps.places.PlacesService(map);
     service.findPlaceFromQuery(
       { query: searchQuery, fields: ["geometry"] },
       (results, status) => {
@@ -125,11 +155,17 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.geometry?.location) {
           map.setCenter(results[0].geometry.location);
           map.setZoom(20);
-          setPoints([]); // Reset points on new property search
+          setPoints([]);
+        } else {
+          toast({
+            title: "Location Not Found",
+            description: "Please check the address and try again.",
+            variant: "destructive"
+          });
         }
       }
     );
-  }, [searchQuery, placesLib, map]);
+  }, [searchQuery, placesLib, map, toast]);
 
   const handleReset = () => {
     setPoints([]);
@@ -174,7 +210,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
 
         <MapControl position={ControlPosition.TOP_RIGHT}>
           <div className="p-4">
-            <Button onClick={handleApply} className="bg-primary hover:bg-primary/90 shadow-lg">
+            <Button onClick={handleApply} className="bg-primary hover:bg-primary/90 shadow-lg font-bold">
               Apply {totalFeet} FT
             </Button>
           </div>
@@ -245,9 +281,19 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
         </DialogHeader>
 
         <div className="flex-1 relative">
-          <APIProvider apiKey={apiKey}>
-            <MapContent address={address} onApply={onApply} closeDialog={() => setIsOpen(false)} />
-          </APIProvider>
+          {apiKey ? (
+            <APIProvider apiKey={apiKey}>
+              <MapContent address={address} onApply={onApply} closeDialog={() => setIsOpen(false)} />
+            </APIProvider>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
+              <MapIcon className="h-12 w-12 text-muted-foreground opacity-20" />
+              <h3 className="text-xl font-bold">Google Maps API Key Required</h3>
+              <p className="text-muted-foreground max-w-sm">
+                Please add your Google Maps API key to the .env file as <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to enable property measurements.
+              </p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

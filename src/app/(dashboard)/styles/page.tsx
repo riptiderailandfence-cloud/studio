@@ -45,6 +45,143 @@ interface BOMItemWithId extends BOMItem {
   uiId: string;
 }
 
+// Isolated component for each BOM row to handle its own Popover state and search focus
+function BOMItemRow({ 
+  item, 
+  updateBOMItem, 
+  removeBOMItem 
+}: { 
+  item: BOMItemWithId; 
+  updateBOMItem: (uiId: string, updates: Partial<BOMItemWithId>) => void;
+  removeBOMItem: (uiId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the search input whenever the popover opens
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  const filteredMaterials = useMemo(() => {
+    const s = search.toLowerCase().trim();
+    if (!s) return SAMPLE_MATERIALS;
+    return SAMPLE_MATERIALS.filter(m => 
+      m.name.toLowerCase().includes(s) || 
+      m.category.toLowerCase().includes(s)
+    );
+  }, [search]);
+
+  return (
+    <div className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
+      <div className="col-span-6 space-y-1.5">
+        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
+        
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button 
+              variant="outline" 
+              role="combobox" 
+              type="button"
+              className="w-full h-9 justify-between font-normal text-left px-3 overflow-hidden"
+            >
+              <span className="truncate">
+                {item.materialId ? (SAMPLE_MATERIALS.find(m => m.id === item.materialId)?.name || "Select material...") : "Select material..."}
+              </span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent 
+            className="w-[300px] p-0 shadow-xl" 
+            align="start"
+            // Stop the dialog focus trap from reclaiming focus
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <div className="p-2 border-b">
+              <div className="relative flex items-center">
+                <SearchIcon className="absolute left-2 h-4 w-4 opacity-50" />
+                <Input
+                  ref={inputRef}
+                  placeholder="Search materials..."
+                  className="h-9 pl-8 w-full"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  // CRITICAL: Stop propagation so the Dialog doesn't eat these keystrokes
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onKeyUp={(e) => e.stopPropagation()}
+                  onKeyPress={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+            <ScrollArea className="h-[200px]">
+              <div className="p-1">
+                {filteredMaterials.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No materials found.
+                  </div>
+                ) : (
+                  filteredMaterials.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground outline-none transition-colors",
+                        item.materialId === m.id && "bg-accent/50"
+                      )}
+                      onClick={() => {
+                        updateBOMItem(item.uiId, { materialId: m.id });
+                        setOpen(false);
+                      }}
+                    >
+                      <Check className={cn("h-4 w-4 shrink-0", item.materialId === m.id ? "opacity-100" : "opacity-0")} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate font-medium">{m.name}</span>
+                        <span className="text-[10px] text-muted-foreground">${m.unitCost.toFixed(2)}/{m.unit}</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="col-span-2 space-y-1.5">
+        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>
+        <Input 
+          type="number" 
+          step="0.1"
+          className="h-9"
+          value={item.qtyPerUnit} 
+          onChange={(e) => updateBOMItem(item.uiId, { qtyPerUnit: parseFloat(e.target.value) || 0 })}
+        />
+      </div>
+      <div className="col-span-3 space-y-1.5">
+        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Waste %</Label>
+        <Input 
+          type="number" 
+          step="1"
+          className="h-9"
+          value={((item.wastePct || 0) * 100).toFixed(0)} 
+          onChange={(e) => updateBOMItem(item.uiId, { wastePct: (parseFloat(e.target.value) || 0) / 100 })}
+          placeholder="5"
+        />
+      </div>
+      <div className="col-span-1 flex justify-end">
+        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeBOMItem(item.uiId)}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function StylesPage() {
   const [mounted, setMounted] = useState(false);
   const [styles, setStyles] = useState<Style[]>(SAMPLE_STYLES);
@@ -55,24 +192,9 @@ export default function StylesPage() {
   const [editingStyle, setEditingStyle] = useState<(Omit<Style, 'bom'> & { bom: BOMItemWithId[] }) | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Material Search State
-  const [matSearch, setMatSearch] = useState("");
-  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Auto-focus search input when popover opens
-  useEffect(() => {
-    if (openPopoverId && searchInputRef.current) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [openPopoverId]);
 
   const filteredStyles = useMemo(() => {
     return styles.filter((style) => {
@@ -162,7 +284,7 @@ export default function StylesPage() {
 
     const styleToSave: Style = {
       ...editingStyle,
-      bom: editingStyle.bom.map(({ uiId, ...rest }) => rest), // Remove UI IDs before saving
+      bom: editingStyle.bom.map(({ uiId, ...rest }) => rest), 
       costPerUnit: calculatedCost > 0 ? calculatedCost : editingStyle.costPerUnit
     };
 
@@ -172,7 +294,7 @@ export default function StylesPage() {
         setStyles(styles.map(s => s.id === styleToSave.id ? styleToSave : s));
         toast({
           title: "Style Updated",
-          description: `${styleToSave.name} has been successfully updated. Cost recalculated based on materials.`,
+          description: `${styleToSave.name} has been successfully updated.`,
         });
       } else {
         setStyles([...styles, styleToSave]);
@@ -185,15 +307,6 @@ export default function StylesPage() {
       setIsEditorOpen(false);
     }, 600);
   };
-
-  const searchedMaterials = useMemo(() => {
-    const search = matSearch.toLowerCase().trim();
-    if (!search) return SAMPLE_MATERIALS;
-    return SAMPLE_MATERIALS.filter(m => 
-      m.name.toLowerCase().includes(search) || 
-      m.category.toLowerCase().includes(search)
-    );
-  }, [matSearch]);
 
   if (!mounted) return null;
 
@@ -371,7 +484,7 @@ export default function StylesPage() {
                         id="sectionLength" 
                         type="number"
                         value={editingStyle?.sectionLength || 0} 
-                        onChange={(e) => setEditingStyle(prev => prev ? { ...prev, sectionLength: parseFloat(e.target.value) } : null)}
+                        onChange={(e) => setEditingStyle(prev => prev ? { ...prev, sectionLength: parseFloat(e.target.value) || 0 } : null)}
                         placeholder="e.g. 8"
                       />
                     </div>
@@ -406,121 +519,12 @@ export default function StylesPage() {
                       </div>
                     ) : (
                       editingStyle?.bom.map((item) => (
-                        <div key={item.uiId} className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
-                          <div className="col-span-6 space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
-                            
-                            <Popover 
-                              open={openPopoverId === item.uiId} 
-                              onOpenChange={(open) => {
-                                if (open) {
-                                  setOpenPopoverId(item.uiId);
-                                  setMatSearch("");
-                                } else {
-                                  setOpenPopoverId(null);
-                                }
-                              }}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  role="combobox" 
-                                  type="button"
-                                  className="w-full h-9 justify-between font-normal text-left px-3 overflow-hidden"
-                                >
-                                  <span className="truncate">
-                                    {item.materialId ? (SAMPLE_MATERIALS.find(m => m.id === item.materialId)?.name || "Select material...") : (item.materialName || "Select material...")}
-                                  </span>
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent 
-                                className="w-[300px] p-0 shadow-xl" 
-                                align="start"
-                                onOpenAutoFocus={(e) => {
-                                  // This prevents the Dialog from fighting for focus when the popover opens
-                                  e.preventDefault();
-                                  searchInputRef.current?.focus();
-                                }}
-                              >
-                                <div className="p-2 border-b">
-                                  <div className="relative flex items-center">
-                                    <SearchIcon className="absolute left-2 h-4 w-4 opacity-50" />
-                                    <Input
-                                      ref={searchInputRef}
-                                      placeholder="Search materials..."
-                                      className="h-9 pl-8 w-full"
-                                      value={matSearch}
-                                      onChange={(e) => setMatSearch(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        // Stop propagation for key events to ensure the parent Dialog doesn't consume them
-                                        e.stopPropagation();
-                                      }}
-                                      onKeyUp={(e) => e.stopPropagation()}
-                                      onKeyPress={(e) => e.stopPropagation()}
-                                    />
-                                  </div>
-                                </div>
-                                <ScrollArea className="h-[200px]">
-                                  <div className="p-1">
-                                    {searchedMaterials.length === 0 ? (
-                                      <div className="p-4 text-center text-sm text-muted-foreground">
-                                        No materials found.
-                                      </div>
-                                    ) : (
-                                      searchedMaterials.map((m) => (
-                                        <button
-                                          key={m.id}
-                                          type="button"
-                                          className={cn(
-                                            "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground outline-none transition-colors",
-                                            item.materialId === m.id && "bg-accent/50"
-                                          )}
-                                          onClick={() => {
-                                            updateBOMItem(item.uiId, { materialId: m.id });
-                                            setOpenPopoverId(null);
-                                          }}
-                                        >
-                                          <Check className={cn("h-4 w-4 shrink-0", item.materialId === m.id ? "opacity-100" : "opacity-0")} />
-                                          <div className="flex flex-col min-w-0">
-                                            <span className="truncate font-medium">{m.name}</span>
-                                            <span className="text-[10px] text-muted-foreground">${m.unitCost.toFixed(2)}/{m.unit}</span>
-                                          </div>
-                                        </button>
-                                      ))
-                                    )}
-                                  </div>
-                                </ScrollArea>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="col-span-2 space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>
-                            <Input 
-                              type="number" 
-                              step="0.1"
-                              className="h-9"
-                              value={item.qtyPerUnit} 
-                              onChange={(e) => updateBOMItem(item.uiId, { qtyPerUnit: parseFloat(e.target.value) || 0 })}
-                            />
-                          </div>
-                          <div className="col-span-3 space-y-1.5">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Waste %</Label>
-                            <Input 
-                              type="number" 
-                              step="1"
-                              className="h-9"
-                              value={((item.wastePct || 0) * 100).toFixed(0)} 
-                              onChange={(e) => updateBOMItem(item.uiId, { wastePct: (parseFloat(e.target.value) || 0) / 100 })}
-                              placeholder="5"
-                            />
-                          </div>
-                          <div className="col-span-1 flex justify-end">
-                            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeBOMItem(item.uiId)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
+                        <BOMItemRow 
+                          key={item.uiId} 
+                          item={item} 
+                          updateBOMItem={updateBOMItem} 
+                          removeBOMItem={removeBOMItem} 
+                        />
                       ))
                     )}
                   </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Material, MaterialUnit } from "@/lib/types";
 import { 
@@ -12,7 +12,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Tag, FilterX, Upload, Pencil, Save, X } from "lucide-react";
+import { Plus, Search, Tag, FilterX, Upload, Pencil, Save, X, Download, FileText, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
@@ -22,7 +22,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
-  DialogDescription
+  DialogDescription,
+  DialogTrigger
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { 
@@ -43,6 +44,11 @@ export default function MaterialsPage() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Bulk Upload State
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredMaterials = useMemo(() => {
     return materials.filter((mat) => {
@@ -79,7 +85,6 @@ export default function MaterialsPage() {
     if (!editingMaterial) return;
 
     setIsSaving(true);
-    // Simulate API delay
     setTimeout(() => {
       const isExisting = materials.some(m => m.id === editingMaterial.id);
       if (isExisting) {
@@ -100,11 +105,61 @@ export default function MaterialsPage() {
     }, 600);
   };
 
-  const handleBulkUpload = () => {
+  const handleDownloadTemplate = () => {
+    const headers = "name,category,unit,unitCost,description\n";
+    const example = "Cedar Picket 6ft,Wood,board,4.50,Premium grade cedar\nVinyl Privacy Panel,Vinyl,psc,85.00,White privacy panel 6x8";
+    const blob = new Blob([headers + example], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pillarpath_materials_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
     toast({
-      title: "Bulk Upload",
-      description: "Select a CSV or Excel file to upload your material list.",
+      title: "Template Downloaded",
+      description: "Follow the format in the CSV for successful bulk upload.",
     });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const rows = text.split('\n').filter(row => row.trim() !== '');
+      
+      // Skip header row
+      const newMaterials: Material[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        const columns = rows[i].split(',').map(col => col.trim());
+        if (columns.length >= 4) {
+          const [name, category, unit, unitCost, description] = columns;
+          newMaterials.push({
+            id: crypto.randomUUID(),
+            tenantId: 'tenant_1',
+            name: name || 'Unnamed Material',
+            category: category || 'Other',
+            unit: (unit as MaterialUnit) || 'psc',
+            unitCost: parseFloat(unitCost) || 0,
+            description: description || ''
+          });
+        }
+      }
+
+      setTimeout(() => {
+        setMaterials(prev => [...prev, ...newMaterials]);
+        setIsUploading(false);
+        setIsBulkUploadOpen(false);
+        toast({
+          title: "Upload Successful",
+          description: `Added ${newMaterials.length} new materials to your inventory.`,
+        });
+      }, 1000);
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -115,10 +170,59 @@ export default function MaterialsPage() {
           <p className="text-muted-foreground">Manage material inventory and unit costs used for styles.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={handleBulkUpload}>
-            <Upload className="h-4 w-4" />
-            Bulk Upload
-          </Button>
+          <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Upload className="h-4 w-4" />
+                Bulk Upload
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Bulk Upload Materials</DialogTitle>
+                <DialogDescription>
+                  Upload a CSV file to add multiple materials at once.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-6 py-4">
+                <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 space-y-4 hover:bg-secondary/20 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Click to select CSV</p>
+                    <p className="text-xs text-muted-foreground">or drag and drop here</p>
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".csv" 
+                    onChange={handleFileUpload}
+                  />
+                  {isUploading && (
+                    <div className="flex items-center gap-2 text-sm text-primary">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Parsing file...
+                    </div>
+                  )}
+                </div>
+                
+                <div className="bg-secondary/30 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Download className="h-4 w-4" /> Need a template?
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Download our CSV template to see the required column structure.
+                  </p>
+                  <Button variant="secondary" size="sm" className="w-full gap-2" onClick={handleDownloadTemplate}>
+                    Download Example CSV
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Button className="gap-2" onClick={handleAddNew}>
             <Plus className="h-4 w-4" />
             Add Material

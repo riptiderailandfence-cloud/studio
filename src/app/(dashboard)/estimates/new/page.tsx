@@ -131,15 +131,15 @@ export default function NewEstimatePage() {
     let calculatedManHours = 0;
     let totalFeetCount = 0;
 
+    const sOverhead = isNaN(overheadPct) ? 0 : overheadPct;
+    const sProfit = isNaN(profitPct) ? 0 : profitPct;
+
     // Derived Production Rate: How many man-hours does it take to install 1 foot?
-    // Formula: (Crew Size * 8 hours per day) / Feet per day
     const manHoursPerFoot = (crewSize * 8) / (dailyProductionFt || 1);
     
-    // Additional constant rates
     const gateLaborRate = 4; // 4 man hours per gate
     const demoRate = 0.1; // 0.1 man hours per foot demo
 
-    // Calculate per section
     sections.forEach(sec => {
       const fStyle = fenceStyles.find(s => s.id === sec.fenceStyleId);
       const pStyle = postStyles.find(s => s.id === sec.postStyleId);
@@ -152,7 +152,6 @@ export default function NewEstimatePage() {
       totalFeetCount += sec.feet;
     });
 
-    // Gate Costs
     const gateMaterialCost = gates.reduce((acc, g) => {
       const style = gateStyles.find(gs => gs.id === g.styleId);
       return acc + (style?.costPerUnit || 0) * g.qty;
@@ -162,32 +161,26 @@ export default function NewEstimatePage() {
     const gateManHours = gates.reduce((acc, g) => acc + (g.qty * gateLaborRate), 0);
     calculatedManHours += gateManHours;
 
-    // Demo Costs
     const demoManHours = enableDemo ? (demoFeet * demoRate) : 0;
     calculatedManHours += demoManHours;
 
-    // Final Labor Calc
-    const finalManHours = manualLaborHours !== null ? manualLaborHours : calculatedManHours;
+    const finalManHours = manualLaborHours !== null && !isNaN(manualLaborHours) ? manualLaborHours : calculatedManHours;
     const laborCost = finalManHours * laborRatePerMember;
 
-    // Base Production Cost (Materials + Labor)
     const baseCost = materialsTotal + laborCost;
     
-    // Calculate Selling Total based on selected Pricing Method
     let sellTotal = 0;
     let profitAmount = 0;
 
     if (pricingMethod === 'margin') {
-      // Margin Formula: Sell Price = Cost / (1 - Margin%)
-      sellTotal = baseCost / (1 - profitPct);
+      const divisor = 1 - sProfit;
+      sellTotal = divisor <= 0 ? baseCost : baseCost / divisor;
       profitAmount = sellTotal - baseCost;
     } else {
-      // Markup Formula: Sell Price = Cost * (1 + Markup%)
-      sellTotal = baseCost * (1 + profitPct);
+      sellTotal = baseCost * (1 + sProfit);
       profitAmount = sellTotal - baseCost;
     }
     
-    // Sales Tax (8% on Sell Price)
     const tax = sellTotal * 0.08;
     const finalTotal = sellTotal + tax;
 
@@ -212,6 +205,7 @@ export default function NewEstimatePage() {
     enableDemo, 
     demoFeet, 
     profitPct, 
+    overheadPct,
     laborRatePerMember, 
     crewSize, 
     dailyProductionFt, 
@@ -386,7 +380,7 @@ export default function NewEstimatePage() {
                         <Input 
                           type="number" 
                           className="w-24 h-10 text-lg font-black text-center" 
-                          value={sec.feet}
+                          value={isNaN(sec.feet) ? "" : sec.feet}
                           onChange={(e) => updateSection(sec.id, { feet: parseFloat(e.target.value) || 0 })}
                         />
                         <span className="font-bold text-sm">FT</span>
@@ -433,7 +427,7 @@ export default function NewEstimatePage() {
                           <Input 
                             type="number" 
                             className="w-24 h-10 text-lg font-bold text-center" 
-                            value={demoFeet}
+                            value={isNaN(demoFeet) ? "" : demoFeet}
                             onChange={(e) => setDemoFeet(parseFloat(e.target.value) || 0)}
                           />
                           <span className="text-sm font-bold">FT</span>
@@ -491,13 +485,13 @@ export default function NewEstimatePage() {
                       <Label>Quantity</Label>
                       <Input 
                         type="number" 
-                        value={g.qty} 
+                        value={isNaN(g.qty) ? "" : g.qty} 
                         onChange={(e) => updateGate(g.id, { qty: parseInt(e.target.value) || 1 })} 
                       />
                     </div>
                     <div className="col-span-1 text-right pb-3">
                       <span className="font-mono font-bold text-sm">
-                        ${((gateStyles.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * g.qty).toFixed(2)}
+                        ${((gateStyles.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * (isNaN(g.qty) ? 0 : g.qty)).toFixed(2)}
                       </span>
                     </div>
                     <div className="col-span-1 pb-1">
@@ -526,8 +520,11 @@ export default function NewEstimatePage() {
                         <Input 
                           type="number" 
                           step="0.01" 
-                          value={overheadPct * 100} 
-                          onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100)} 
+                          value={isNaN(overheadPct) ? "" : (overheadPct * 100).toFixed(1)} 
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setOverheadPct(isNaN(val) ? 0 : val / 100);
+                          }} 
                         />
                       </div>
                       <div className="space-y-2">
@@ -535,8 +532,11 @@ export default function NewEstimatePage() {
                         <Input 
                           type="number" 
                           step="0.01" 
-                          value={profitPct * 100} 
-                          onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100)} 
+                          value={isNaN(profitPct) ? "" : (profitPct * 100).toFixed(1)} 
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setProfitPct(isNaN(val) ? 0 : val / 100);
+                          }} 
                         />
                       </div>
                     </div>
@@ -600,8 +600,11 @@ export default function NewEstimatePage() {
                               <Input 
                                 type="number" 
                                 className="w-16 h-7 bg-slate-800 border-slate-700 text-right text-xs px-2 focus:ring-primary"
-                                value={totals.finalManHours.toFixed(1)}
-                                onChange={(e) => setManualLaborHours(parseFloat(e.target.value) || 0)}
+                                value={isNaN(totals.finalManHours) ? "" : totals.finalManHours.toFixed(1)}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value);
+                                  setManualLaborHours(isNaN(val) ? 0 : val);
+                                }}
                               />
                               <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Hrs</span>
                             </div>
@@ -641,7 +644,7 @@ export default function NewEstimatePage() {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-400 flex items-center gap-1">
-                            Profit ({(profitPct * 100).toFixed(0)}%)
+                            Profit ({(isNaN(profitPct) ? 0 : profitPct * 100).toFixed(0)}%)
                           </span>
                           <span className="font-mono text-green-400">+${totals.profitAmount.toFixed(2)}</span>
                         </div>
@@ -695,7 +698,7 @@ export default function NewEstimatePage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Gates</span>
-                  <span className="font-bold">{gates.reduce((acc, g) => acc + g.qty, 0)} Units</span>
+                  <span className="font-bold">{gates.reduce((acc, g) => acc + (isNaN(g.qty) ? 0 : g.qty), 0)} Units</span>
                 </div>
               </div>
               

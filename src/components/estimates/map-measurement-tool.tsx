@@ -1,21 +1,19 @@
 
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { 
   Map as MapIcon, 
   MousePointer2, 
   Trash2, 
-  CheckCircle2, 
   Search, 
   Loader2,
   Info,
@@ -50,9 +48,13 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   const polylineRef = useRef<google.maps.Polyline | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
 
+  // Update polyline as points change
   useEffect(() => {
-    if (!map) return;
+    if (!map || typeof google === 'undefined') return;
     
+    // Clear existing polyline
+    if (polylineRef.current) polylineRef.current.setMap(null);
+
     polylineRef.current = new google.maps.Polyline({
       path: points,
       geodesic: true,
@@ -67,10 +69,13 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
     };
   }, [map, points]);
 
+  // Update markers and calculate distance
   useEffect(() => {
-    if (!map || !geometryLib) return;
+    if (!map || !geometryLib || typeof google === 'undefined') return;
 
+    // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
+    
     markersRef.current = points.map((point, index) => 
       new google.maps.Marker({
         position: point,
@@ -93,7 +98,8 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
     );
 
     if (points.length > 1) {
-      const meters = geometryLib.spherical.computeLength(points.map(p => new google.maps.LatLng(p.lat, p.lng)));
+      const path = points.map(p => new google.maps.LatLng(p.lat, p.lng));
+      const meters = geometryLib.spherical.computeLength(path);
       setTotalFeet(Math.round(meters * 3.28084)); // Convert meters to feet
     } else {
       setTotalFeet(0);
@@ -119,7 +125,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.geometry?.location) {
           map.setCenter(results[0].geometry.location);
           map.setZoom(20);
-          setPoints([]);
+          setPoints([]); // Reset points on new property search
         }
       }
     );
@@ -163,6 +169,14 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
                 {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </form>
+          </div>
+        </MapControl>
+
+        <MapControl position={ControlPosition.TOP_RIGHT}>
+          <div className="p-4">
+            <Button onClick={handleApply} className="bg-primary hover:bg-primary/90 shadow-lg">
+              Apply {totalFeet} FT
+            </Button>
           </div>
         </MapControl>
 
@@ -226,12 +240,7 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-              <Button onClick={() => document.getElementById('apply-btn')?.click()} className="bg-primary hover:bg-primary/90">
-                Apply Measurement
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>
           </div>
         </DialogHeader>
 
@@ -239,7 +248,6 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           <APIProvider apiKey={apiKey}>
             <MapContent address={address} onApply={onApply} closeDialog={() => setIsOpen(false)} />
           </APIProvider>
-          <Button id="apply-btn" className="hidden" onClick={() => {}} />
         </div>
       </DialogContent>
     </Dialog>

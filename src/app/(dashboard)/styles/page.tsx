@@ -60,6 +60,7 @@ function BOMItemRow({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredMaterials = useMemo(() => {
     const s = search.toLowerCase().trim();
@@ -70,12 +71,24 @@ function BOMItemRow({
     );
   }, [search]);
 
+  // Ensure focus is applied after popover animation
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setSearch("");
+    }
+  }, [open]);
+
   return (
     <div className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
       <div className="col-span-6 space-y-1.5">
         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
         
-        <Popover open={open} onOpenChange={setOpen} modal={true}>
+        <Popover open={open} onOpenChange={setOpen} modal={false}>
           <PopoverTrigger asChild>
             <Button 
               variant="outline" 
@@ -92,22 +105,26 @@ function BOMItemRow({
           <PopoverContent 
             className="w-[300px] p-0 shadow-xl" 
             align="start"
-            // Ensure keyboard events stay within the popover's context
+            // Stop key events from bubbling to Dialog
             onKeyDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            // Prevent Radix from fighting over focus with the input
+            onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <div className="p-2 border-b">
+            <div className="p-2 border-b" onKeyDown={(e) => e.stopPropagation()}>
               <div className="relative flex items-center">
                 <SearchIcon className="absolute left-2 h-4 w-4 opacity-50" />
                 <Input
-                  autoFocus
+                  ref={inputRef}
                   placeholder="Search materials..."
                   className="h-9 pl-8 w-full"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  // CRITICAL: Stop propagation across all key events
+                  // CRITICAL: Stop propagation across ALL key events
                   onKeyDown={(e) => e.stopPropagation()}
                   onKeyUp={(e) => e.stopPropagation()}
                   onKeyPress={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.stopPropagation()}
                 />
               </div>
             </div>

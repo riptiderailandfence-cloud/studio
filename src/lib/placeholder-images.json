@@ -7,6 +7,12 @@
       "imageHint": "satellite map"
     },
     {
+      "id": "satellite-map-alt",
+      "description": "Alternative satellite view of a residential property",
+      "imageUrl": "https://images.unsplash.com/photo-1500382017468-9049fed747ef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxmYXJtfGVufDB8fHx8MTc3MTcwOTM3MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "satellite field"
+    },
+    {
       "id": "street-map",
       "description": "Standard street map view of a residential neighborhood",
       "imageUrl": "https://images.unsplash.com/photo-1524661135-423995f22d0b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtYXAlMjBzdHJlZXR8ZW58MHx8fHwxNzcxNzA5MzcxfDA&ixlib=rb-4.1.0&q=80&w=1080",

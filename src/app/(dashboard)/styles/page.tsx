@@ -62,7 +62,10 @@ export default function StylesPage() {
   // Auto-focus search input when popover opens
   useEffect(() => {
     if (openPopoverId && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 10);
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [openPopoverId]);
 
@@ -425,8 +428,18 @@ export default function StylesPage() {
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-[300px] p-0 shadow-xl" align="start">
-                                <div className="flex items-center border-b px-3 bg-white">
+                              <PopoverContent 
+                                className="w-[300px] p-0 shadow-xl" 
+                                align="start"
+                                onOpenAutoFocus={(e) => {
+                                  // Manual focus handling to bypass Dialog trap if needed
+                                  searchInputRef.current?.focus();
+                                }}
+                              >
+                                <div 
+                                  className="flex items-center border-b px-3 bg-white"
+                                  onKeyDown={(e) => e.stopPropagation()} // CRITICAL: Stop key events from bubbling to Dialog
+                                >
                                   <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                                   <Input
                                     ref={searchInputRef}

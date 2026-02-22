@@ -25,7 +25,8 @@ import {
   Settings2,
   Briefcase,
   TrendingUp,
-  Clock
+  Clock,
+  Zap
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -65,13 +66,16 @@ export default function NewEstimatePage() {
   const [demoFeet, setDemoFeet] = useState<number>(0);
   const [gates, setGates] = useState<GateEntry[]>([]);
   
-  // Pricing & Breakdown State
-  const [overheadPct, setOverheadPct] = useState<number>(0.10); // Default 10%
-  const [profitPct, setProfitPct] = useState<number>(0.20); // Default 20%
+  // Pricing & Breakdown State (Defaults matching Settings)
+  const [overheadPct, setOverheadPct] = useState<number>(0.10); 
+  const [profitPct, setProfitPct] = useState<number>(0.20); 
   
-  // Labor Rate: Reference from settings/crew
-  const [laborRate, setLaborRate] = useState<number>(35); 
-  // Labor Hours: Manual adjustment for site conditions
+  // Labor Configuration (Synced from Settings logic)
+  const [crewSize, setCrewSize] = useState<number>(2);
+  const [laborRatePerMember, setLaborRatePerMember] = useState<number>(35); 
+  const [dailyProductionFt, setDailyProductionFt] = useState<number>(100);
+  
+  // Labor Hours Override
   const [manualLaborHours, setManualLaborHours] = useState<number | null>(null);
 
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
@@ -81,7 +85,8 @@ export default function NewEstimatePage() {
     setMounted(true);
     // Reference the "Settings" hourly crew rate (simulated by averaging sample crew)
     const avg = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
-    setLaborRate(avg);
+    setLaborRatePerMember(avg);
+    setCrewSize(SAMPLE_CREW.length || 2);
   }, []);
 
   const selectedCustomer = useMemo(() => SAMPLE_CUSTOMERS.find(c => c.id === selectedCustomerId), [selectedCustomerId]);
@@ -127,8 +132,11 @@ export default function NewEstimatePage() {
     let calculatedManHours = 0;
     let totalFeetCount = 0;
 
-    // Standard Rates (should ideally come from global settings)
-    const productionRate = 0.24; // man hours per foot
+    // Derived Production Rate: How many man-hours does it take to install 1 foot?
+    // Formula: (Crew Size * 8 hours per day) / Feet per day
+    const manHoursPerFoot = (crewSize * 8) / (dailyProductionFt || 1);
+    
+    // Additional constant rates
     const gateLaborRate = 4; // 4 man hours per gate
     const demoRate = 0.1; // 0.1 man hours per foot demo
 
@@ -141,7 +149,7 @@ export default function NewEstimatePage() {
       const pCost = (pStyle?.costPerUnit || 0) * (sec.feet / 8);
       
       materialsTotal += (fCost + pCost);
-      calculatedManHours += (sec.feet * productionRate);
+      calculatedManHours += (sec.feet * manHoursPerFoot);
       totalFeetCount += sec.feet;
     });
 
@@ -159,9 +167,9 @@ export default function NewEstimatePage() {
     const demoManHours = enableDemo ? (demoFeet * demoRate) : 0;
     calculatedManHours += demoManHours;
 
-    // Use manual override if present (for difficult site conditions), otherwise use calculated
+    // Final Labor Calc
     const finalManHours = manualLaborHours !== null ? manualLaborHours : calculatedManHours;
-    const laborCost = finalManHours * laborRate;
+    const laborCost = finalManHours * laborRatePerMember;
 
     const baseCost = materialsTotal + laborCost;
     
@@ -170,9 +178,8 @@ export default function NewEstimatePage() {
     const subtotalWithOH = baseCost + overheadAmount;
     const profitAmount = subtotalWithOH * profitPct;
     
-    // Final Selling Total (before tax)
+    // Final Selling Total
     const sellTotal = subtotalWithOH + profitAmount;
-
     const tax = sellTotal * 0.08;
     const finalTotal = sellTotal + tax;
 
@@ -188,9 +195,25 @@ export default function NewEstimatePage() {
       sellTotal,
       tax,
       finalTotal,
-      deposit: finalTotal * 0.5
+      deposit: finalTotal * 0.5,
+      manHoursPerFoot,
+      totalLaborRate: laborRatePerMember
     };
-  }, [sections, gates, enableDemo, demoFeet, overheadPct, profitPct, laborRate, manualLaborHours, fenceStyles, postStyles, gateStyles]);
+  }, [
+    sections, 
+    gates, 
+    enableDemo, 
+    demoFeet, 
+    overheadPct, 
+    profitPct, 
+    laborRatePerMember, 
+    crewSize, 
+    dailyProductionFt, 
+    manualLaborHours, 
+    fenceStyles, 
+    postStyles, 
+    gateStyles
+  ]);
 
   const handleApplyAI = (method: 'margin' | 'markup', value: number) => {
     setPricingMethod(method);
@@ -562,7 +585,7 @@ export default function NewEstimatePage() {
                           <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
                         </div>
                         
-                        {/* Quick Labor Adjustment Field: Focus on Labor Hours */}
+                        {/* Quick Labor Adjustment Field */}
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm items-center">
                             <span className="text-slate-400 flex items-center gap-1">
@@ -578,9 +601,26 @@ export default function NewEstimatePage() {
                               <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Hrs</span>
                             </div>
                           </div>
+                          
+                          {/* Production Context */}
+                          <div className="bg-slate-800/50 p-2 rounded-md space-y-1">
+                            <div className="flex justify-between text-[10px] text-slate-500 italic">
+                              <span className="flex items-center gap-1"><Users className="h-2 w-2" /> Crew Size:</span>
+                              <span>{crewSize} members</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500 italic">
+                              <span className="flex items-center gap-1"><Zap className="h-2 w-2" /> Daily Production:</span>
+                              <span>{dailyProductionFt} ft/day</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-500 border-t border-slate-700 pt-1">
+                              <span>Unit Rate:</span>
+                              <span>{totals.manHoursPerFoot.toFixed(3)} man-hrs/ft</span>
+                            </div>
+                          </div>
+
                           <div className="flex justify-between text-[10px] text-slate-500 pl-4 italic">
-                            <span>Rate from Settings:</span>
-                            <span>${laborRate.toFixed(2)}/hr</span>
+                            <span>Labor Rate:</span>
+                            <span>${totals.totalLaborRate.toFixed(2)}/hr</span>
                           </div>
                           <div className="flex justify-between text-xs font-mono text-slate-400 pl-4 border-l border-slate-800 ml-2">
                             <span>Subtotal Labor:</span>

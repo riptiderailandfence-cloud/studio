@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -528,7 +527,7 @@ export default function NewEstimatePage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Profit %</Label>
+                        <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Net Profit</Label>
                         <Input 
                           type="number" 
                           step="0.01" 

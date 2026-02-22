@@ -13,7 +13,8 @@ import {
   CalendarDays,
   ChevronRight,
   Briefcase,
-  TrendingUp
+  TrendingUp,
+  Smartphone
 } from "lucide-react";
 import {
   Sidebar,
@@ -147,6 +148,22 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Field Operations</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Field Portal" className="text-accent hover:text-accent">
+                  <Link href="/crew-portal">
+                    <Smartphone />
+                    <span>Field Crew Portal</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

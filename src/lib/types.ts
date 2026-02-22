@@ -104,9 +104,11 @@ export interface CrewMember {
   id: string;
   tenantId: string;
   name: string;
+  email?: string;
   hourlyRate: number;
   laborRate?: number; // e.g. per section
   productionRate?: number; // e.g. feet/day
+  status?: 'active' | 'invited' | 'inactive';
 }
 
 export interface ScheduleEvent {

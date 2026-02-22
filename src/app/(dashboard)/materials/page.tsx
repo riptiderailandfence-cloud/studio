@@ -12,17 +12,40 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Tag, FilterX, Upload, Pencil } from "lucide-react";
+import { Plus, Search, Tag, FilterX, Upload, Pencil, Save, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function MaterialsPage() {
+  const [materials, setMaterials] = useState<Material[]>(SAMPLE_MATERIALS);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  
+  // Editor State
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const filteredMaterials = useMemo(() => {
-    return SAMPLE_MATERIALS.filter((mat) => {
+    return materials.filter((mat) => {
       const matchesSearch = 
         mat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         mat.category.toLowerCase().includes(searchTerm.toLowerCase());
@@ -31,13 +54,50 @@ export default function MaterialsPage() {
       
       return matchesSearch && matchesCategory;
     });
-  }, [searchTerm, categoryFilter]);
+  }, [materials, searchTerm, categoryFilter]);
 
   const handleEdit = (material: Material) => {
-    toast({
-      title: "Edit Material",
-      description: `Opening editor for ${material.name}. (Feature coming soon)`,
+    setEditingMaterial({ ...material });
+    setIsEditorOpen(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingMaterial({
+      id: crypto.randomUUID(),
+      tenantId: 'tenant_1',
+      name: '',
+      category: 'Other',
+      unit: 'each',
+      unitCost: 0,
+      description: ''
     });
+    setIsEditorOpen(true);
+  };
+
+  const handleSaveMaterial = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMaterial) return;
+
+    setIsSaving(true);
+    // Simulate API delay
+    setTimeout(() => {
+      const isExisting = materials.some(m => m.id === editingMaterial.id);
+      if (isExisting) {
+        setMaterials(materials.map(m => m.id === editingMaterial.id ? editingMaterial : m));
+        toast({
+          title: "Material Updated",
+          description: `${editingMaterial.name} has been successfully updated.`,
+        });
+      } else {
+        setMaterials([...materials, editingMaterial]);
+        toast({
+          title: "Material Created",
+          description: `${editingMaterial.name} has been added to inventory.`,
+        });
+      }
+      setIsSaving(false);
+      setIsEditorOpen(false);
+    }, 600);
   };
 
   const handleBulkUpload = () => {
@@ -59,7 +119,7 @@ export default function MaterialsPage() {
             <Upload className="h-4 w-4" />
             Bulk Upload
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={handleAddNew}>
             <Plus className="h-4 w-4" />
             Add Material
           </Button>
@@ -104,7 +164,12 @@ export default function MaterialsPage() {
             {filteredMaterials.length > 0 ? (
               filteredMaterials.map((mat) => (
                 <TableRow key={mat.id}>
-                  <TableCell className="font-medium">{mat.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <div>
+                      <div>{mat.name}</div>
+                      {mat.description && <div className="text-xs text-muted-foreground truncate max-w-xs">{mat.description}</div>}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Tag className="h-3 w-3 text-muted-foreground" />
@@ -143,6 +208,101 @@ export default function MaterialsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Material Editor Dialog */}
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <form onSubmit={handleSaveMaterial}>
+            <DialogHeader>
+              <DialogTitle>{editingMaterial?.id === crypto.randomUUID() ? "Add New Material" : "Edit Material"}</DialogTitle>
+              <DialogDescription>
+                Define your material details and unit costs for precise estimating.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Material Name</Label>
+                <Input 
+                  id="name" 
+                  value={editingMaterial?.name || ''} 
+                  onChange={(e) => setEditingMaterial(prev => prev ? { ...prev, name: e.target.value } : null)}
+                  placeholder="e.g. Cedar Picket 6ft"
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select 
+                    value={editingMaterial?.category} 
+                    onValueChange={(val) => setEditingMaterial(prev => prev ? { ...prev, category: val } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Wood">Wood</SelectItem>
+                      <SelectItem value="Chain Link">Chain Link</SelectItem>
+                      <SelectItem value="Aluminum">Aluminum</SelectItem>
+                      <SelectItem value="Vinyl">Vinyl</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="unit">Unit of Measure</Label>
+                  <Select 
+                    value={editingMaterial?.unit} 
+                    onValueChange={(val: any) => setEditingMaterial(prev => prev ? { ...prev, unit: val } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="each">Each</SelectItem>
+                      <SelectItem value="linear_foot">Linear Foot</SelectItem>
+                      <SelectItem value="section">Section</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="unitCost">Unit Cost ($)</Label>
+                <Input 
+                  id="unitCost" 
+                  type="number" 
+                  step="0.01"
+                  value={editingMaterial?.unitCost || 0} 
+                  onChange={(e) => setEditingMaterial(prev => prev ? { ...prev, unitCost: parseFloat(e.target.value) } : null)}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description (Optional)</Label>
+                <Textarea 
+                  id="description" 
+                  value={editingMaterial?.description || ''} 
+                  onChange={(e) => setEditingMaterial(prev => prev ? { ...prev, description: e.target.value } : null)}
+                  placeholder="Brief description of the material..."
+                  className="min-h-[100px]"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)} className="gap-2">
+                <X className="h-4 w-4" /> Cancel
+              </Button>
+              <Button type="submit" disabled={isSaving} className="gap-2">
+                {isSaving ? "Saving..." : <><Save className="h-4 w-4" /> Save Material</>}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

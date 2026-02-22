@@ -39,6 +39,7 @@ export interface Material {
   unit: 'linear_foot' | 'each' | 'section';
   unitCost: number;
   category: string;
+  description?: string;
   vendor?: string;
 }
 

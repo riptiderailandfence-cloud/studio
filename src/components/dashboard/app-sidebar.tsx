@@ -11,7 +11,8 @@ import {
   Settings,
   HardHat,
   CalendarDays,
-  ChevronRight
+  ChevronRight,
+  Briefcase
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,6 +41,7 @@ const navigationItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "CRM (Customers)", url: "/crm", icon: Users },
   { title: "Schedule", url: "/schedule", icon: CalendarDays },
+  { title: "Jobs (Job Packs)", url: "/jobs", icon: Briefcase },
   { title: "Materials", url: "/materials", icon: Package },
   { 
     title: "Styles & Types", 

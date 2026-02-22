@@ -10,7 +10,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Eye, Send, Share2 } from "lucide-react";
+import { Plus, Search, Eye, Send, Share2, Briefcase } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -61,7 +61,7 @@ export default function EstimatesPage() {
               <TableHead>Date</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[150px]">Actions</TableHead>
+              <TableHead className="w-[200px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -80,6 +80,13 @@ export default function EstimatesPage() {
                   <div className="flex gap-2">
                     <Button variant="ghost" size="icon" title="View"><Eye className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" title="Send"><Send className="h-4 w-4" /></Button>
+                    {(est.status === 'accepted' || est.status === 'deposit_paid') && (
+                      <Button asChild variant="ghost" size="icon" title="Job Pack" className="text-primary">
+                        <Link href={`/jobs/${est.id}`}>
+                          <Briefcase className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" title="Share"><Share2 className="h-4 w-4" /></Button>
                   </div>
                 </TableCell>

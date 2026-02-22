@@ -21,7 +21,8 @@ import {
   Plus,
   Minus,
   Check,
-  MapPin
+  Box,
+  Square
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -88,6 +89,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   const [searchQuery, setSearchQuery] = useState(address || "");
   const [isSearching, setIsSearching] = useState(false);
   const [searchMarker, setSearchMarker] = useState<google.maps.LatLngLiteral | null>(null);
+  const [tilt, setTilt] = useState(0);
 
   // Calculate distance whenever points change
   useEffect(() => {
@@ -183,6 +185,10 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
     closeDialog();
   };
 
+  const toggleTilt = () => {
+    setTilt(prev => (prev === 0 ? 45 : 0));
+  };
+
   return (
     <div className="relative w-full h-full bg-slate-100">
       <Map
@@ -193,6 +199,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         onClick={handleMapClick}
         gestureHandling="greedy"
         disableDefaultUI={true}
+        tilt={tilt}
         className="w-full h-full"
       >
         {/* Render the search marker if it exists */}
@@ -283,10 +290,20 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
           </div>
         </MapControl>
 
-        {/* Zoom Controls */}
+        {/* Zoom & View Controls */}
         <MapControl position={ControlPosition.RIGHT_BOTTOM}>
           <div className="m-4 flex flex-col gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white shadow-lg rounded-xl border flex flex-col overflow-hidden">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-10 w-10 rounded-none hover:bg-secondary" 
+                title={tilt === 0 ? "Switch to Adjusted View" : "Switch to Top-Down View"}
+                onClick={toggleTilt}
+              >
+                {tilt === 0 ? <Box className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+              </Button>
+              <Separator />
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none hover:bg-secondary" title="Zoom In" onClick={() => map?.setZoom((map.getZoom() || 0) + 1)}>
                 <Plus className="h-4 w-4" />
               </Button>

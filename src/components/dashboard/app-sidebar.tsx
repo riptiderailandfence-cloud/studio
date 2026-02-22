@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { 
   LayoutDashboard, 
   Users, 
@@ -55,6 +56,27 @@ const navigationItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <Sidebar variant="inset" collapsible="icon">
+        <SidebarHeader className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-2 font-bold text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              P
+            </div>
+          </div>
+        </SidebarHeader>
+        <SidebarContent />
+        <SidebarFooter />
+      </Sidebar>
+    );
+  }
 
   return (
     <Sidebar variant="inset" collapsible="icon">

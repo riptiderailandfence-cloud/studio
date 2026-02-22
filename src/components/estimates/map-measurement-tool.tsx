@@ -17,7 +17,9 @@ import {
   Search, 
   Loader2,
   Info,
-  Navigation
+  Navigation,
+  Plus,
+  Minus
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -120,8 +122,8 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
     setIsSearching(true);
     
     try {
-      // Prioritize Places API (New) if available
-      // @ts-ignore - 'Place' is available in modern versions of the library
+      // Attempt to use modern Places API (New)
+      // @ts-ignore - 'Place' is part of the newer JS SDK
       if (placesLib.Place) {
         // @ts-ignore
         const { places } = await placesLib.Place.searchByText({
@@ -143,28 +145,41 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         }
       }
     } catch (err) {
-      console.warn("Places API (New) failed, falling back to legacy service:", err);
+      console.warn("Places API (New) not available, falling back to legacy service:", err);
     }
 
-    // Fallback to legacy PlacesService
-    const service = new google.maps.places.PlacesService(map);
-    service.findPlaceFromQuery(
-      { query: searchQuery, fields: ["geometry"] },
-      (results, status) => {
-        setIsSearching(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.geometry?.location) {
-          map.setCenter(results[0].geometry.location);
-          map.setZoom(20);
-          setPoints([]);
-        } else {
-          toast({
-            title: "Location Not Found",
-            description: "Please check the address and try again.",
-            variant: "destructive"
-          });
+    // Fallback to legacy PlacesService if New API is not enabled or fails
+    try {
+      const service = new google.maps.places.PlacesService(map);
+      service.findPlaceFromQuery(
+        { query: searchQuery, fields: ["geometry"] },
+        (results, status) => {
+          setIsSearching(false);
+          if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.geometry?.location) {
+            map.setCenter(results[0].geometry.location);
+            map.setZoom(20);
+            setPoints([]);
+          } else {
+            const errorMsg = status === 'REQUEST_DENIED' 
+              ? "Access denied. Please ensure the Places API is enabled in your Google Cloud Console."
+              : "Location not found. Please check the address and try again.";
+            
+            toast({
+              title: "Search Failed",
+              description: errorMsg,
+              variant: "destructive"
+            });
+          }
         }
-      }
-    );
+      );
+    } catch (err) {
+      setIsSearching(false);
+      toast({
+        title: "Service Error",
+        description: "Google Maps services are currently unavailable.",
+        variant: "destructive"
+      });
+    }
   }, [searchQuery, placesLib, map, toast]);
 
   const handleReset = () => {
@@ -208,15 +223,28 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
           </div>
         </MapControl>
 
-        <MapControl position={ControlPosition.TOP_RIGHT}>
-          <div className="p-4">
-            <Button onClick={handleApply} className="bg-primary hover:bg-primary/90 shadow-lg font-bold">
+        <MapControl position={ControlPosition.RIGHT_BOTTOM}>
+          <div className="flex flex-col gap-2 p-4">
+            <div className="bg-white/95 backdrop-blur-sm p-1 rounded-lg shadow-lg border flex flex-col">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" title="Zoom In" onClick={() => map?.setZoom((map.getZoom() || 0) + 1)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Separator />
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" title="Zoom Out" onClick={() => map?.setZoom((map.getZoom() || 0) - 1)}>
+                <Minus className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button 
+              onClick={handleApply} 
+              className="bg-primary hover:bg-primary/90 shadow-lg font-bold h-12 px-6"
+              disabled={totalFeet === 0}
+            >
               Apply {totalFeet} FT
             </Button>
           </div>
         </MapControl>
 
-        {points.length === 0 && (
+        {points.length === 0 && !isSearching && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="bg-slate-900/80 p-6 rounded-2xl text-white text-center space-y-2 backdrop-blur border border-white/20">
               <MousePointer2 className="h-8 w-8 mx-auto mb-2 text-primary animate-pulse" />
@@ -227,7 +255,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         )}
       </Map>
 
-      <div className="absolute bottom-6 right-6 z-10 flex items-center gap-6 bg-slate-900/95 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/10">
+      <div className="absolute bottom-6 left-6 z-10 flex items-center gap-6 bg-slate-900/95 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/10">
         <div className="space-y-1">
           <p className="text-[10px] font-black uppercase text-primary tracking-widest">Calculated Length</p>
           <div className="flex items-baseline gap-2">

@@ -150,6 +150,10 @@ export default function SettingsPage() {
                     <Label>Sales Tax Rate (%)</Label>
                     <Input type="number" step="0.01" defaultValue="8.25" placeholder="e.g. 8.25" />
                   </div>
+                  <div className="grid gap-2">
+                    <Label>Material Tax Rate (%)</Label>
+                    <Input type="number" step="0.01" defaultValue="0" placeholder="e.g. 6.0" />
+                  </div>
                 </div>
               </div>
 

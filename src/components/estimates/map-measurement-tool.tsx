@@ -311,7 +311,7 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
         </DialogHeader>
 
         <div className="flex-1 relative overflow-hidden bg-slate-100">
-          <APIProvider apiKey={apiKey}>
+          <APIProvider apiKey={apiKey} libraries={['geometry', 'places']}>
             <MapContent address={address} onApply={onApply} closeDialog={() => setIsOpen(false)} />
           </APIProvider>
         </div>

@@ -19,7 +19,8 @@ import {
   Info,
   Navigation,
   Plus,
-  Minus
+  Minus,
+  Check
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -32,6 +33,7 @@ import {
   ControlPosition 
 } from "@vis.gl/react-google-maps";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface MapMeasurementToolProps {
   onApply: (feet: number) => void;
@@ -122,7 +124,6 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
     setIsSearching(true);
     
     try {
-      // Attempt to use modern Places API (New)
       // @ts-ignore - 'Place' is part of the newer JS SDK
       if (placesLib.Place) {
         // @ts-ignore
@@ -148,7 +149,6 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
       console.warn("Places API (New) not available, falling back to legacy service:", err);
     }
 
-    // Fallback to legacy PlacesService if New API is not enabled or fails
     try {
       const service = new google.maps.places.PlacesService(map);
       service.findPlaceFromQuery(
@@ -160,13 +160,9 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
             map.setZoom(20);
             setPoints([]);
           } else {
-            const errorMsg = status === 'REQUEST_DENIED' 
-              ? "Access denied. Please ensure the Places API is enabled in your Google Cloud Console."
-              : "Location not found. Please check the address and try again.";
-            
             toast({
               title: "Search Failed",
-              description: errorMsg,
+              description: "Location not found. Please check the address.",
               variant: "destructive"
             });
           }
@@ -174,11 +170,6 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
       );
     } catch (err) {
       setIsSearching(false);
-      toast({
-        title: "Service Error",
-        description: "Google Maps services are currently unavailable.",
-        variant: "destructive"
-      });
     }
   }, [searchQuery, placesLib, map, toast]);
 
@@ -193,7 +184,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   };
 
   return (
-    <>
+    <div className="relative w-full h-full">
       <Map
         defaultCenter={{ lat: 39.8283, lng: -98.5795 }}
         defaultZoom={4}
@@ -204,83 +195,101 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         disableDefaultUI={true}
         className="w-full h-full"
       >
+        {/* Top Controls: Search Bar */}
         <MapControl position={ControlPosition.TOP_LEFT}>
-          <div className="p-4 bg-white/95 backdrop-blur shadow-lg rounded-br-xl flex flex-col gap-3 border-b border-r">
-            <form onSubmit={handleSearch} className="flex gap-2 w-80">
+          <div className="m-4 flex gap-2">
+            <div className="flex bg-white/95 backdrop-blur shadow-xl rounded-xl border p-1 w-80">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Search property address..." 
-                  className="pl-10 h-10"
+                  placeholder="Property address..." 
+                  className="pl-10 h-10 border-0 focus-visible:ring-0 shadow-none bg-transparent"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
-              <Button type="submit" size="icon" disabled={isSearching}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                disabled={isSearching} 
+                onClick={() => handleSearch()}
+                className="h-10 w-10"
+              >
                 {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
-            </form>
+            </div>
           </div>
         </MapControl>
 
-        <MapControl position={ControlPosition.RIGHT_BOTTOM}>
-          <div className="flex flex-col gap-2 p-4">
-            <div className="bg-white/95 backdrop-blur-sm p-1 rounded-lg shadow-lg border flex flex-col">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" title="Zoom In" onClick={() => map?.setZoom((map.getZoom() || 0) + 1)}>
-                <Plus className="h-4 w-4" />
-              </Button>
-              <Separator />
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" title="Zoom Out" onClick={() => map?.setZoom((map.getZoom() || 0) - 1)}>
-                <Minus className="h-4 w-4" />
-              </Button>
+        {/* Bottom Controls: Stats & Zoom */}
+        <MapControl position={ControlPosition.BOTTOM_LEFT}>
+          <div className="m-4 flex flex-col gap-4">
+            <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-white/10 p-4 min-w-[200px] flex items-center gap-4">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-black uppercase text-primary tracking-widest">Length</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black font-mono tracking-tighter">{totalFeet}</span>
+                  <span className="text-xs font-bold text-slate-500">FT</span>
+                </div>
+              </div>
+              <Separator orientation="vertical" className="h-10 bg-white/10" />
+              <div className="flex flex-col gap-1.5">
+                <Badge variant="outline" className="text-[9px] border-white/20 text-white h-5 bg-white/5">
+                  {points.length} Nodes
+                </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleReset} 
+                  className="h-6 text-[10px] px-0 justify-start text-destructive hover:text-destructive hover:bg-transparent"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" /> Reset
+                </Button>
+              </div>
             </div>
+            
             <Button 
               onClick={handleApply} 
-              className="bg-primary hover:bg-primary/90 shadow-lg font-bold h-12 px-6"
+              className="bg-primary hover:bg-primary/90 text-white shadow-lg font-bold h-12 w-full rounded-xl gap-2"
               disabled={totalFeet === 0}
             >
-              Apply {totalFeet} FT
+              <Check className="h-4 w-4" /> Apply to Estimate
             </Button>
           </div>
         </MapControl>
 
-        {points.length === 0 && !isSearching && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-slate-900/80 p-6 rounded-2xl text-white text-center space-y-2 backdrop-blur border border-white/20">
-              <MousePointer2 className="h-8 w-8 mx-auto mb-2 text-primary animate-pulse" />
-              <h3 className="font-bold">Trace Your Fence Line</h3>
-              <p className="text-xs opacity-70">Click on the map to place measurement markers.</p>
+        <MapControl position={ControlPosition.RIGHT_BOTTOM}>
+          <div className="m-4 flex flex-col gap-2">
+            <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border flex flex-col overflow-hidden">
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none hover:bg-secondary" title="Zoom In" onClick={() => map?.setZoom((map.getZoom() || 0) + 1)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Separator />
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none hover:bg-secondary" title="Zoom Out" onClick={() => map?.setZoom((map.getZoom() || 0) - 1)}>
+                <Minus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </MapControl>
+
+        {/* Discrete Instruction Hint */}
+        {points.length === 0 && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 pointer-events-none">
+            <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 shadow-xl flex items-center gap-3">
+              <MousePointer2 className="h-4 w-4 text-primary animate-pulse" />
+              <p className="text-sm font-medium text-white">Click map to trace fence line</p>
             </div>
           </div>
         )}
       </Map>
-
-      <div className="absolute bottom-6 left-6 z-10 flex items-center gap-6 bg-slate-900/95 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/10">
-        <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase text-primary tracking-widest">Calculated Length</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-5xl font-black font-mono text-white tabular-nums tracking-tighter">{totalFeet}</span>
-            <span className="text-lg font-bold text-slate-500 uppercase">FT</span>
-          </div>
-        </div>
-        <Separator orientation="vertical" className="h-12 bg-white/10" />
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-xs text-white">
-            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            <span>{points.length} nodes placed</span>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleReset} className="h-8 text-xs bg-transparent text-white border-white/20 hover:bg-white/10">
-            <Trash2 className="h-3 w-3 mr-2" /> Clear All
-          </Button>
-        </div>
-      </div>
-    </>
+    </div>
   );
 }
 
 export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  const apiKey = "AIzaSyC-4Uk3IhQ_OAsM2y1YSmse9eg66BE1Z_E";
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -290,25 +299,25 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           Measure on Map
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0 overflow-hidden bg-background">
-        <DialogHeader className="p-4 border-b">
+      <DialogContent className="max-w-6xl w-[95vw] h-[85vh] flex flex-col p-0 overflow-hidden bg-background">
+        <DialogHeader className="p-4 border-b shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <Navigation className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-black">Property Measurement</DialogTitle>
+                <DialogTitle className="text-lg font-black tracking-tight">Project Measurement</DialogTitle>
                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                  <Info className="h-3 w-3" /> Accurate spherical measurement via Google Maps
+                  <Info className="h-3 w-3" /> Satellite Property Trace
                 </div>
               </div>
             </div>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>Close</Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)} className="h-8">Close</Button>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 relative">
+        <div className="flex-1 relative overflow-hidden">
           {apiKey ? (
             <APIProvider apiKey={apiKey}>
               <MapContent address={address} onApply={onApply} closeDialog={() => setIsOpen(false)} />
@@ -316,9 +325,9 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
               <MapIcon className="h-12 w-12 text-muted-foreground opacity-20" />
-              <h3 className="text-xl font-bold">Google Maps API Key Required</h3>
+              <h3 className="text-xl font-bold text-slate-900">Map Service Unavailable</h3>
               <p className="text-muted-foreground max-w-sm">
-                Please add your Google Maps API key to the .env file as <code>NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> to enable property measurements.
+                Google Maps API key is missing. Please check your configuration.
               </p>
             </div>
           )}

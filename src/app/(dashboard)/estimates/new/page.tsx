@@ -68,7 +68,7 @@ export default function NewEstimatePage() {
   
   // Pricing & Breakdown State (Defaults matching Settings)
   const [overheadPct, setOverheadPct] = useState<number>(0.10); 
-  const [profitPct, setProfitPct] = useState<number>(0.20); 
+  const [profitPct, setProfitPct] = useState<number>(0.30); 
   
   // Labor Configuration (Synced from Settings logic)
   const [crewSize, setCrewSize] = useState<number>(2);
@@ -79,7 +79,6 @@ export default function NewEstimatePage() {
   const [manualLaborHours, setManualLaborHours] = useState<number | null>(null);
 
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
-  const [pricingValue, setPricingValue] = useState<number>(0.3);
 
   useEffect(() => {
     setMounted(true);
@@ -171,15 +170,24 @@ export default function NewEstimatePage() {
     const finalManHours = manualLaborHours !== null ? manualLaborHours : calculatedManHours;
     const laborCost = finalManHours * laborRatePerMember;
 
+    // Base Production Cost (Materials + Labor)
     const baseCost = materialsTotal + laborCost;
     
-    // Stacked Overhead & Profit Calculation
-    const overheadAmount = baseCost * overheadPct;
-    const subtotalWithOH = baseCost + overheadAmount;
-    const profitAmount = subtotalWithOH * profitPct;
+    // Calculate Selling Total based on selected Pricing Method
+    let sellTotal = 0;
+    let profitAmount = 0;
+
+    if (pricingMethod === 'margin') {
+      // Margin Formula: Sell Price = Cost / (1 - Margin%)
+      sellTotal = baseCost / (1 - profitPct);
+      profitAmount = sellTotal - baseCost;
+    } else {
+      // Markup Formula: Sell Price = Cost * (1 + Markup%)
+      sellTotal = baseCost * (1 + profitPct);
+      profitAmount = sellTotal - baseCost;
+    }
     
-    // Final Selling Total
-    const sellTotal = subtotalWithOH + profitAmount;
+    // Sales Tax (8% on Sell Price)
     const tax = sellTotal * 0.08;
     const finalTotal = sellTotal + tax;
 
@@ -190,7 +198,6 @@ export default function NewEstimatePage() {
       calculatedManHours,
       finalManHours,
       baseCost,
-      overheadAmount,
       profitAmount,
       sellTotal,
       tax,
@@ -204,7 +211,6 @@ export default function NewEstimatePage() {
     gates, 
     enableDemo, 
     demoFeet, 
-    overheadPct, 
     profitPct, 
     laborRatePerMember, 
     crewSize, 
@@ -212,12 +218,12 @@ export default function NewEstimatePage() {
     manualLaborHours, 
     fenceStyles, 
     postStyles, 
-    gateStyles
+    gateStyles,
+    pricingMethod
   ]);
 
   const handleApplyAI = (method: 'margin' | 'markup', value: number) => {
     setPricingMethod(method);
-    setPricingValue(value);
     setProfitPct(value);
   };
 
@@ -538,7 +544,7 @@ export default function NewEstimatePage() {
                     <Separator className="my-2" />
                     
                     <div className="space-y-2">
-                      <Label>Calculation Method (Standard)</Label>
+                      <Label>Calculation Method</Label>
                       <Select value={pricingMethod} onValueChange={(v: any) => setPricingMethod(v)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -571,7 +577,7 @@ export default function NewEstimatePage() {
                       <Calculator className="h-5 w-5" /> Internal Cost Breakdown
                     </div>
                     <Badge variant="outline" className="text-slate-400 border-slate-700">
-                      Precision Mode
+                      {pricingMethod.toUpperCase()} MODE
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -585,7 +591,6 @@ export default function NewEstimatePage() {
                           <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
                         </div>
                         
-                        {/* Quick Labor Adjustment Field */}
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm items-center">
                             <span className="text-slate-400 flex items-center gap-1">
@@ -602,7 +607,6 @@ export default function NewEstimatePage() {
                             </div>
                           </div>
                           
-                          {/* Production Context */}
                           <div className="bg-slate-800/50 p-2 rounded-md space-y-1">
                             <div className="flex justify-between text-[10px] text-slate-500 italic">
                               <span className="flex items-center gap-1"><Users className="h-2 w-2" /> Crew Size:</span>
@@ -611,10 +615,6 @@ export default function NewEstimatePage() {
                             <div className="flex justify-between text-[10px] text-slate-500 italic">
                               <span className="flex items-center gap-1"><Zap className="h-2 w-2" /> Daily Production:</span>
                               <span>{dailyProductionFt} ft/day</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-slate-500 border-t border-slate-700 pt-1">
-                              <span>Unit Rate:</span>
-                              <span>{totals.manHoursPerFoot.toFixed(3)} man-hrs/ft</span>
                             </div>
                           </div>
 
@@ -639,12 +639,6 @@ export default function NewEstimatePage() {
                     <div className="space-y-3">
                       <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Business Strategy</h4>
                       <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400 flex items-center gap-1">
-                            Overhead ({(overheadPct * 100).toFixed(0)}%)
-                          </span>
-                          <span className="font-mono text-amber-400">+${totals.overheadAmount.toFixed(2)}</span>
-                        </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-400 flex items-center gap-1">
                             Profit ({(profitPct * 100).toFixed(0)}%)

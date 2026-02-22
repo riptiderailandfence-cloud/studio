@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Material, MaterialUnit } from "@/lib/types";
 import { 
@@ -36,6 +37,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 export default function MaterialsPage() {
+  const [mounted, setMounted] = useState(false);
   const [materials, setMaterials] = useState<Material[]>(SAMPLE_MATERIALS);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -49,6 +51,10 @@ export default function MaterialsPage() {
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const filteredMaterials = useMemo(() => {
     return materials.filter((mat) => {
@@ -161,6 +167,8 @@ export default function MaterialsPage() {
     };
     reader.readAsText(file);
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6">
@@ -318,7 +326,9 @@ export default function MaterialsPage() {
         <DialogContent className="sm:max-w-[500px]">
           <form onSubmit={handleSaveMaterial}>
             <DialogHeader>
-              <DialogTitle>{editingMaterial?.id === crypto.randomUUID() ? "Add New Material" : "Edit Material"}</DialogTitle>
+              <DialogTitle>
+                {materials.some(m => m.id === editingMaterial?.id) ? "Edit Material" : "Add New Material"}
+              </DialogTitle>
               <DialogDescription>
                 Define your material details and unit costs for precise estimating.
               </DialogDescription>

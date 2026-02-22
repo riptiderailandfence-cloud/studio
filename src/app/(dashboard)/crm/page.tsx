@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { SAMPLE_CUSTOMERS } from "@/lib/mock-data";
 import { Customer } from "@/lib/types";
 import { 
@@ -24,8 +25,13 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function CRMPage() {
+  const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     return SAMPLE_CUSTOMERS.filter((customer) => {
@@ -49,6 +55,8 @@ export default function CRMPage() {
       default: return 'secondary';
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6">

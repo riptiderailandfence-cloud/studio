@@ -46,6 +46,7 @@ interface BOMItemWithId extends BOMItem {
 }
 
 export default function StylesPage() {
+  const [mounted, setMounted] = useState(false);
   const [styles, setStyles] = useState<Style[]>(SAMPLE_STYLES);
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   
@@ -58,6 +59,10 @@ export default function StylesPage() {
   const [matSearch, setMatSearch] = useState("");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Auto-focus search input when popover opens
   useEffect(() => {
@@ -190,6 +195,8 @@ export default function StylesPage() {
     );
   }, [matSearch]);
 
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -230,7 +237,6 @@ export default function StylesPage() {
                   <Badge variant="outline" className="capitalize">{style.type}</Badge>
                   <Badge variant="secondary">{style.category}</Badge>
                 </div>
-                <CardTitle className="text-xl font-bold">{style.name}</CardTitle>
                 <CardTitle className="text-xl font-bold">{style.name}</CardTitle>
                 <CardDescription className="line-clamp-2">{style.description}</CardDescription>
               </CardHeader>

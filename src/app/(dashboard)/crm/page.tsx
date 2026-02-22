@@ -13,7 +13,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, MoreHorizontal, Mail, Phone, FilterX } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Mail, Phone, FilterX, Save, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -23,18 +23,41 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { toast } from "@/hooks/use-toast";
 
 export default function CRMPage() {
   const [mounted, setMounted] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>(SAMPLE_CUSTOMERS);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  
+  // Editor State
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Partial<Customer> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const filteredCustomers = useMemo(() => {
-    return SAMPLE_CUSTOMERS.filter((customer) => {
+    return customers.filter((customer) => {
       const matchesSearch = 
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,7 +67,53 @@ export default function CRMPage() {
       
       return matchesSearch && matchesStatus;
     });
-  }, [searchTerm, statusFilter]);
+  }, [customers, searchTerm, statusFilter]);
+
+  const handleAddNew = () => {
+    setEditingCustomer({
+      id: crypto.randomUUID(),
+      tenantId: 'tenant_1',
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      pipelineStage: 'LEAD',
+      createdAt: new Date().toISOString()
+    });
+    setIsEditorOpen(true);
+  };
+
+  const handleSaveCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomer || !editingCustomer.name || !editingCustomer.email) {
+      toast({
+        title: "Missing Info",
+        description: "Please provide at least a name and email.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    setTimeout(() => {
+      const isExisting = customers.some(c => c.id === editingCustomer.id);
+      if (isExisting) {
+        setCustomers(customers.map(c => c.id === editingCustomer.id ? editingCustomer as Customer : c));
+        toast({
+          title: "Customer Updated",
+          description: `${editingCustomer.name}'s record has been saved.`,
+        });
+      } else {
+        setCustomers([editingCustomer as Customer, ...customers]);
+        toast({
+          title: "Customer Added",
+          description: `${editingCustomer.name} has been added to the CRM.`,
+        });
+      }
+      setIsSaving(false);
+      setIsEditorOpen(false);
+    }, 800);
+  };
 
   const getStatusVariant = (stage: string): "default" | "secondary" | "outline" | "destructive" => {
     switch (stage) {
@@ -65,7 +134,7 @@ export default function CRMPage() {
           <h2 className="text-2xl font-bold tracking-tight">Customers</h2>
           <p className="text-muted-foreground">Manage your leads and existing customers.</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={handleAddNew}>
           <Plus className="h-4 w-4" />
           Add Customer
         </Button>
@@ -135,7 +204,10 @@ export default function CRMPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setEditingCustomer({ ...customer });
+                          setIsEditorOpen(true);
+                        }}>Edit Details</DropdownMenuItem>
                         <DropdownMenuItem>Create Estimate</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
                       </DropdownMenuContent>
@@ -165,6 +237,88 @@ export default function CRMPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleSaveCustomer}>
+            <DialogHeader>
+              <DialogTitle>
+                {customers.some(c => c.id === editingCustomer?.id) ? "Edit Customer" : "Add New Customer"}
+              </DialogTitle>
+              <DialogDescription>
+                Record customer contact details and current pipeline stage.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input 
+                  id="name" 
+                  value={editingCustomer?.name || ''} 
+                  onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, name: e.target.value } : null)}
+                  placeholder="e.g. Alice Cooper"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input 
+                  id="email" 
+                  type="email"
+                  value={editingCustomer?.email || ''} 
+                  onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, email: e.target.value } : null)}
+                  placeholder="alice@example.com"
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input 
+                  id="phone" 
+                  value={editingCustomer?.phone || ''} 
+                  onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                  placeholder="555-0100"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="address">Job Site Address</Label>
+                <Input 
+                  id="address" 
+                  value={editingCustomer?.address || ''} 
+                  onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, address: e.target.value } : null)}
+                  placeholder="123 Street Ave"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="stage">Pipeline Stage</Label>
+                <Select 
+                  value={editingCustomer?.pipelineStage} 
+                  onValueChange={(val: any) => setEditingCustomer(prev => prev ? { ...prev, pipelineStage: val } : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LEAD">Lead</SelectItem>
+                    <SelectItem value="QUOTE_SENT">Quote Sent</SelectItem>
+                    <SelectItem value="ACCEPTED">Accepted</SelectItem>
+                    <SelectItem value="LOST">Lost</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)} className="gap-2">
+                <X className="h-4 w-4" /> Cancel
+              </Button>
+              <Button type="submit" disabled={isSaving} className="gap-2">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {customers.some(c => c.id === editingCustomer?.id) ? "Update Customer" : "Save Customer"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

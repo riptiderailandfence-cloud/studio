@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SAMPLE_CUSTOMERS } from "@/lib/mock-data";
 import { Customer } from "@/lib/types";
 import { 
@@ -42,6 +43,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 export default function CRMPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>(SAMPLE_CUSTOMERS);
   const [searchTerm, setSearchTerm] = useState("");
@@ -125,13 +127,22 @@ export default function CRMPage() {
     }
   };
 
+  const handleDelete = (id: string) => {
+    setCustomers(customers.filter(c => c.id !== id));
+    toast({
+      title: "Customer Removed",
+      description: "Customer record has been deleted from the database.",
+      variant: "destructive"
+    });
+  };
+
   if (!mounted) return null;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Customers</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Customers</h2>
           <p className="text-muted-foreground">Manage your leads and existing customers.</p>
         </div>
         <Button className="gap-2" onClick={handleAddNew}>
@@ -145,7 +156,7 @@ export default function CRMPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search name, email, or address..." 
-            className="pl-10" 
+            className="pl-10 h-10" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -162,54 +173,58 @@ export default function CRMPage() {
         </Tabs>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+            <TableRow className="bg-slate-50">
+              <TableHead className="font-bold">Name</TableHead>
+              <TableHead className="font-bold">Contact</TableHead>
+              <TableHead className="font-bold">Address</TableHead>
+              <TableHead className="font-bold">Status</TableHead>
+              <TableHead className="w-[100px] font-bold">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredCustomers.length > 0 ? (
               filteredCustomers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">{customer.name}</TableCell>
+                <TableRow key={customer.id} className="hover:bg-slate-50/50 transition-colors">
+                  <TableCell className="font-semibold text-slate-900">{customer.name}</TableCell>
                   <TableCell>
                     <div className="flex flex-col text-sm">
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-3 w-3 text-muted-foreground" /> {customer.email}
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground" /> {customer.email}
                       </span>
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <Phone className="h-3 w-3" /> {customer.phone}
+                      <span className="flex items-center gap-1.5 text-slate-500 text-xs">
+                        <Phone className="h-3.5 w-3.5" /> {customer.phone}
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate text-muted-foreground">
+                  <TableCell className="max-w-[200px] truncate text-slate-600">
                     {customer.address}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusVariant(customer.pipelineStage)}>
+                    <Badge variant={getStatusVariant(customer.pipelineStage)} className="font-bold">
                       {customer.pipelineStage.replace('_', ' ')}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem onClick={() => {
                           setEditingCustomer({ ...customer });
                           setIsEditorOpen(true);
                         }}>Edit Details</DropdownMenuItem>
-                        <DropdownMenuItem>Create Estimate</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/estimates/new?customer=${customer.id}`)}>
+                          Create Estimate
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(customer.id)}>
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -307,7 +322,7 @@ export default function CRMPage() {
                 </Select>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="bg-slate-50 p-6 -mx-6 -mb-6 mt-4">
               <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)} className="gap-2">
                 <X className="h-4 w-4" /> Cancel
               </Button>

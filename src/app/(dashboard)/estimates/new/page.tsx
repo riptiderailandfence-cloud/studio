@@ -1,7 +1,8 @@
+
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_CREW, SAMPLE_TENANT } from "@/lib/mock-data";
 import { Style, Customer } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
@@ -52,8 +53,9 @@ interface GateEntry {
   location: string;
 }
 
-export default function NewEstimatePage() {
+function NewEstimateContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -89,6 +91,13 @@ export default function NewEstimatePage() {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Handle pre-selected customer from query param
+    const customerIdFromQuery = searchParams.get('customer');
+    if (customerIdFromQuery) {
+      setSelectedCustomerId(customerIdFromQuery);
+    }
+
     // Reference the "Settings" hourly crew rate (simulated by averaging sample crew)
     const avg = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
     setLaborRatePerMember(avg);
@@ -96,7 +105,7 @@ export default function NewEstimatePage() {
     setBiddingMethod(SAMPLE_TENANT.settings.biddingMethod || 'footage');
     setPricingMethod(SAMPLE_TENANT.settings.pricingMethod || 'markup');
     setProfitPct(SAMPLE_TENANT.settings.pricingMethod === 'margin' ? SAMPLE_TENANT.settings.defaultMargin : SAMPLE_TENANT.settings.defaultMarkup);
-  }, []);
+  }, [searchParams]);
 
   const selectedCustomer = useMemo(() => SAMPLE_CUSTOMERS.find(c => c.id === selectedCustomerId), [selectedCustomerId]);
   const fenceStyles = useMemo(() => SAMPLE_STYLES.filter(s => s.type === 'fence'), []);
@@ -294,7 +303,7 @@ export default function NewEstimatePage() {
       {/* Stepper Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-3xl font-black tracking-tight">New Estimate</h2>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">New Estimate</h2>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5].map((i) => (
               <div 
@@ -319,7 +328,7 @@ export default function NewEstimatePage() {
             </Button>
           ) : (
             <Button 
-              className="bg-green-600 hover:bg-green-700" 
+              className="bg-green-600 hover:bg-green-700 text-white" 
               onClick={handleSaveEstimate}
               disabled={isSaving}
             >
@@ -341,7 +350,7 @@ export default function NewEstimatePage() {
           
           {/* Step 1: Client Info */}
           {step === 1 && (
-            <Card className="border-2">
+            <Card className="border-2 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" /> Client Information
@@ -368,7 +377,7 @@ export default function NewEstimatePage() {
                     <span className="text-[10px] uppercase font-bold text-muted-foreground">Or</span>
                     <div className="h-px bg-border flex-1" />
                   </div>
-                  <Button variant="outline" className="w-full h-12 dashed border-2 border-dashed">
+                  <Button variant="outline" className="w-full h-12 border-2 border-dashed">
                     <Plus className="h-4 w-4 mr-2" /> Create New Customer Record
                   </Button>
                 </div>
@@ -402,7 +411,7 @@ export default function NewEstimatePage() {
               </div>
 
               {sections.map((sec, idx) => (
-                <Card key={sec.id} className="border-2">
+                <Card key={sec.id} className="border-2 shadow-sm">
                   <CardHeader className="flex flex-row items-center justify-between py-4 bg-secondary/20">
                     <CardTitle className="text-sm font-bold uppercase tracking-wider">
                       Segment #{idx + 1}
@@ -476,7 +485,7 @@ export default function NewEstimatePage() {
           {/* Step 3: Scope & Demo */}
           {step === 3 && (
             <div className="space-y-6">
-              <Card className="border-2">
+              <Card className="border-2 shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Settings2 className="h-5 w-5 text-primary" /> Additional Settings
@@ -521,7 +530,7 @@ export default function NewEstimatePage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-2">
+              <Card className="border-2 shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MessageSquare className="h-5 w-5 text-primary" /> Crew Installation Notes
@@ -549,7 +558,7 @@ export default function NewEstimatePage() {
 
           {/* Step 4: Gates */}
           {step === 4 && (
-            <Card className="border-2">
+            <Card className="border-2 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Project Gates</CardTitle>
@@ -615,7 +624,7 @@ export default function NewEstimatePage() {
           {/* Step 5: Final Review & Strategy */}
           {step === 5 && (
             <div className="space-y-6">
-              <Card className="border-2">
+              <Card className="border-2 shadow-sm">
                 <CardHeader>
                   <CardTitle>Pricing Strategy</CardTitle>
                 </CardHeader>
@@ -847,5 +856,13 @@ export default function NewEstimatePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function NewEstimatePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading estimate builder...</div>}>
+      <NewEstimateContent />
+    </Suspense>
   );
 }

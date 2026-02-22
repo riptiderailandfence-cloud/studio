@@ -95,6 +95,7 @@ export interface Estimate {
     total: number;
     depositRequired: number;
   };
+  notes?: string;
   clientAccessToken: string;
   createdAt: string;
 }

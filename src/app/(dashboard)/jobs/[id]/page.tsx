@@ -25,7 +25,8 @@ import {
   Mail,
   FileText,
   DollarSign,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,7 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
     setMounted(true);
   }, []);
 
-  // Mock Job Data
+  // Mock Job Data - In a real app this would fetch the Estimate with 'notes'
   const jobData = useMemo(() => {
     return {
       id: id,
@@ -71,7 +72,8 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
       gates: [
         { id: 'g1', name: 'Cedar Walk Gate', qty: 1 }
       ],
-      notes: "Digging may be tough on back fence line. Client requested caps on all posts.",
+      // This is where the notes from the estimate are displayed
+      notes: "Digging may be tough on back fence line. Client requested caps on all posts. Watch for buried sprinkler line on East side.",
       estMaterials: 2200,
       estLabor: 1500
     };
@@ -160,6 +162,18 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
+              {/* High Visibility Crew Notes */}
+              {jobData.notes && (
+                <div className="bg-amber-50 border-2 border-amber-200 p-6 rounded-2xl shadow-sm">
+                  <h4 className="text-amber-900 font-black text-xs uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" /> CRITICAL CREW NOTES
+                  </h4>
+                  <p className="text-amber-900 text-lg font-medium italic leading-relaxed">
+                    "{jobData.notes}"
+                  </p>
+                </div>
+              )}
+
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <h3 className="font-bold flex items-center gap-2 text-primary">
@@ -207,15 +221,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
                   ))}
                 </div>
               </div>
-
-              {jobData.notes && (
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl">
-                  <h4 className="text-amber-900 font-bold text-sm uppercase tracking-wider mb-1 flex items-center gap-2">
-                    <FileText className="h-3 w-3" /> Crew Notes
-                  </h4>
-                  <p className="text-amber-800 text-sm italic">{jobData.notes}</p>
-                </div>
-              )}
             </CardContent>
           </Card>
 

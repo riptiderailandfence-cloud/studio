@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Plus, 
   Trash2, 
@@ -27,7 +28,8 @@ import {
   TrendingUp,
   Clock,
   Zap,
-  Loader2
+  Loader2,
+  MessageSquare
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -59,6 +61,7 @@ export default function NewEstimatePage() {
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [jobAddress, setJobAddress] = useState("");
+  const [crewNotes, setCrewNotes] = useState("");
   
   // Multiple Sections State
   const [sections, setSections] = useState<ProjectSection[]>([
@@ -91,6 +94,8 @@ export default function NewEstimatePage() {
     setLaborRatePerMember(avg);
     setCrewSize(SAMPLE_CREW.length || 2);
     setBiddingMethod(SAMPLE_TENANT.settings.biddingMethod || 'footage');
+    setPricingMethod(SAMPLE_TENANT.settings.pricingMethod || 'markup');
+    setProfitPct(SAMPLE_TENANT.settings.pricingMethod === 'margin' ? SAMPLE_TENANT.settings.defaultMargin : SAMPLE_TENANT.settings.defaultMarkup);
   }, []);
 
   const selectedCustomer = useMemo(() => SAMPLE_CUSTOMERS.find(c => c.id === selectedCustomerId), [selectedCustomerId]);
@@ -181,7 +186,7 @@ export default function NewEstimatePage() {
     const finalManHours = manualLaborHours !== null && !isNaN(manualLaborHours) ? manualLaborHours : calculatedManHours;
     const laborCost = finalManHours * laborRatePerMember;
 
-    const baseCost = materialsTotal + laborCost;
+    const baseCost = (materialsTotal + laborCost) * (1 + sOverhead);
     
     let sellTotal = 0;
     let profitAmount = 0;
@@ -470,50 +475,76 @@ export default function NewEstimatePage() {
 
           {/* Step 3: Scope & Demo */}
           {step === 3 && (
-            <Card className="border-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings2 className="h-5 w-5 text-primary" /> Additional Settings
-                </CardTitle>
-                <CardDescription>Demolition and site preparation details.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-8">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <h4 className="font-bold">Demolition / Removal</h4>
-                      <p className="text-sm text-muted-foreground">Remove existing old fencing from site.</p>
+            <div className="space-y-6">
+              <Card className="border-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings2 className="h-5 w-5 text-primary" /> Additional Settings
+                  </CardTitle>
+                  <CardDescription>Demolition and site preparation details.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <h4 className="font-bold">Demolition / Removal</h4>
+                        <p className="text-sm text-muted-foreground">Remove existing old fencing from site.</p>
+                      </div>
+                      <Switch checked={enableDemo} onCheckedChange={setEnableDemo} />
                     </div>
-                    <Switch checked={enableDemo} onCheckedChange={setEnableDemo} />
-                  </div>
-                  
-                  {enableDemo && (
-                    <div className="p-6 border-2 border-dashed rounded-2xl animate-in slide-in-from-top-2">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <Label>How many feet to remove?</Label>
-                          <div className="mt-1">
-                            <MapMeasurementTool 
-                              address={jobAddress} 
-                              onApply={setDemoFeet} 
+                    
+                    {enableDemo && (
+                      <div className="p-6 border-2 border-dashed rounded-2xl animate-in slide-in-from-top-2">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <Label>How many feet to remove?</Label>
+                            <div className="mt-1">
+                              <MapMeasurementTool 
+                                address={jobAddress} 
+                                onApply={setDemoFeet} 
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Input 
+                              type="number" 
+                              className="w-24 h-10 text-lg font-bold text-center" 
+                              value={isNaN(demoFeet) ? "" : demoFeet}
+                              onChange={(e) => setDemoFeet(parseFloat(e.target.value) || 0)}
                             />
+                            <span className="text-sm font-bold">FT</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Input 
-                            type="number" 
-                            className="w-24 h-10 text-lg font-bold text-center" 
-                            value={isNaN(demoFeet) ? "" : demoFeet}
-                            onChange={(e) => setDemoFeet(parseFloat(e.target.value) || 0)}
-                          />
-                          <span className="text-sm font-bold">FT</span>
-                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" /> Crew Installation Notes
+                  </CardTitle>
+                  <CardDescription>Provide technical or logistical instructions for the production crew.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Label htmlFor="crewNotes">Notes for Job Pack</Label>
+                    <Textarea 
+                      id="crewNotes"
+                      placeholder="e.g. Digging may be tough on back fence line. Client requested caps on all posts. Buried utilities on east side."
+                      value={crewNotes}
+                      onChange={(e) => setCrewNotes(e.target.value)}
+                      className="min-h-[120px]"
+                    />
+                    <p className="text-[11px] text-muted-foreground italic">
+                      These notes are internal and will only appear in the Job Pack for the installers, not on the customer's portal.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {/* Step 4: Gates */}

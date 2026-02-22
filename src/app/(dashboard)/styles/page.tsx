@@ -50,6 +50,7 @@ export default function StylesPage() {
 
   // Material Search State for BOM Builder
   const [matSearch, setMatSearch] = useState("");
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
 
   const filteredStyles = useMemo(() => {
     return styles.filter((style) => {
@@ -82,8 +83,8 @@ export default function StylesPage() {
   const addBOMItem = () => {
     if (!editingStyle) return;
     const newItem: BOMItem = {
-      materialId: SAMPLE_MATERIALS[0].id,
-      materialName: SAMPLE_MATERIALS[0].name,
+      materialId: '',
+      materialName: 'Select a material',
       qtyPerUnit: 1,
       wastePct: 0.05
     };
@@ -156,8 +157,8 @@ export default function StylesPage() {
   };
 
   const searchedMaterials = useMemo(() => {
-    if (!matSearch) return SAMPLE_MATERIALS;
-    const search = matSearch.toLowerCase();
+    const search = matSearch.toLowerCase().trim();
+    if (!search) return SAMPLE_MATERIALS;
     return SAMPLE_MATERIALS.filter(m => 
       m.name.toLowerCase().includes(search) || 
       m.category.toLowerCase().includes(search)
@@ -266,7 +267,7 @@ export default function StylesPage() {
         <DialogContent className="sm:max-w-[700px] h-[90vh] flex flex-col p-0">
           <form onSubmit={handleSaveStyle} className="flex flex-col h-full">
             <DialogHeader className="p-6 pb-2">
-              <DialogTitle>{editingStyle?.id === crypto.randomUUID() ? "Create New Style" : "Edit Style"}</DialogTitle>
+              <DialogTitle>{editingStyle?.id === editingStyle?.id && styles.every(s => s.id !== editingStyle?.id) ? "Create New Style" : "Edit Style"}</DialogTitle>
               <DialogDescription>
                 Build your fence style step-by-step: basics, specifications, and materials.
               </DialogDescription>
@@ -375,15 +376,26 @@ export default function StylesPage() {
                           <div className="col-span-6 space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
                             
-                            <Popover onOpenChange={(open) => !open && setMatSearch("")}>
+                            <Popover 
+                              open={openPopoverId === `bom-${idx}`} 
+                              onOpenChange={(open) => {
+                                if (open) {
+                                  setOpenPopoverId(`bom-${idx}`);
+                                  setMatSearch("");
+                                } else {
+                                  setOpenPopoverId(null);
+                                }
+                              }}
+                            >
                               <PopoverTrigger asChild>
                                 <Button 
                                   variant="outline" 
                                   role="combobox" 
-                                  className="w-full h-9 justify-between font-normal"
+                                  type="button"
+                                  className="w-full h-9 justify-between font-normal text-left px-3"
                                 >
                                   <span className="truncate">
-                                    {item.materialId ? SAMPLE_MATERIALS.find(m => m.id === item.materialId)?.name : "Select material..."}
+                                    {item.materialId ? (SAMPLE_MATERIALS.find(m => m.id === item.materialId)?.name || "Select material...") : (item.materialName || "Select material...")}
                                   </span>
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
@@ -402,25 +414,28 @@ export default function StylesPage() {
                                   <div className="p-1">
                                     {searchedMaterials.length === 0 ? (
                                       <div className="p-4 text-center text-sm text-muted-foreground">
-                                        No material found.
+                                        No materials found.
                                       </div>
                                     ) : (
                                       searchedMaterials.map((m) => (
-                                        <Button
+                                        <button
                                           key={m.id}
-                                          variant="ghost"
-                                          className="w-full justify-start font-normal text-sm gap-2"
+                                          type="button"
+                                          className={cn(
+                                            "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground outline-none transition-colors",
+                                            item.materialId === m.id && "bg-accent/50"
+                                          )}
                                           onClick={() => {
                                             updateBOMItem(idx, { materialId: m.id });
-                                            setMatSearch("");
+                                            setOpenPopoverId(null);
                                           }}
                                         >
-                                          <Check className={cn("h-4 w-4", item.materialId === m.id ? "opacity-100" : "opacity-0")} />
-                                          <div className="flex flex-col items-start overflow-hidden">
-                                            <span className="truncate w-full">{m.name}</span>
-                                            <span className="text-[10px] text-muted-foreground">${m.unitCost}/{m.unit}</span>
+                                          <Check className={cn("h-4 w-4 shrink-0", item.materialId === m.id ? "opacity-100" : "opacity-0")} />
+                                          <div className="flex flex-col min-w-0">
+                                            <span className="truncate font-medium">{m.name}</span>
+                                            <span className="text-[10px] text-muted-foreground">${m.unitCost.toFixed(2)}/{m.unit}</span>
                                           </div>
-                                        </Button>
+                                        </button>
                                       ))
                                     )}
                                   </div>
@@ -435,7 +450,7 @@ export default function StylesPage() {
                               step="0.1"
                               className="h-9"
                               value={item.qtyPerUnit} 
-                              onChange={(e) => updateBOMItem(idx, { qtyPerUnit: parseFloat(e.target.value) })}
+                              onChange={(e) => updateBOMItem(idx, { qtyPerUnit: parseFloat(e.target.value) || 0 })}
                             />
                           </div>
                           <div className="col-span-3 space-y-1.5">
@@ -444,8 +459,8 @@ export default function StylesPage() {
                               type="number" 
                               step="0.01"
                               className="h-9"
-                              value={(item.wastePct || 0) * 100} 
-                              onChange={(e) => updateBOMItem(idx, { wastePct: parseFloat(e.target.value) / 100 })}
+                              value={((item.wastePct || 0) * 100).toFixed(0)} 
+                              onChange={(e) => updateBOMItem(idx, { wastePct: (parseFloat(e.target.value) || 0) / 100 })}
                               placeholder="5"
                             />
                           </div>

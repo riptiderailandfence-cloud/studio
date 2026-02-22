@@ -12,7 +12,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Info, Pencil, Save, X, Trash2, LayoutGrid, Check, ChevronsUpDown, Search as SearchIcon } from "lucide-react";
+import { Plus, Info, Pencil, Save, X, Trash2, LayoutGrid, Check, Search as SearchIcon, ChevronsUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StyleOptimizer } from "@/components/styles/style-optimizer";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +23,7 @@ import {
   DialogTitle, 
   DialogFooter,
   DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 // Helper for BOM items with local UI IDs
@@ -46,21 +46,19 @@ interface BOMItemWithId extends BOMItem {
 }
 
 /**
- * Isolated component for each BOM row to handle its own Popover state and search focus.
- * This prevents the parent Dialog from intercepting keystrokes intended for the search box.
+ * A dedicated component for picking a material via a nested Dialog.
+ * This is the most reliable way to handle focus traps within focus traps in Radix.
  */
-function BOMItemRow({ 
-  item, 
-  updateBOMItem, 
-  removeBOMItem 
+function MaterialPicker({ 
+  selectedMaterialId, 
+  onSelect 
 }: { 
-  item: BOMItemWithId; 
-  updateBOMItem: (uiId: string, updates: Partial<BOMItemWithId>) => void;
-  removeBOMItem: (uiId: string) => void;
+  selectedMaterialId: string; 
+  onSelect: (material: Material) => void 
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const selectedMaterial = SAMPLE_MATERIALS.find(m => m.id === selectedMaterialId);
 
   const filteredMaterials = useMemo(() => {
     const s = search.toLowerCase().trim();
@@ -71,95 +69,97 @@ function BOMItemRow({
     );
   }, [search]);
 
-  // Ensure focus is applied after popover animation
-  useEffect(() => {
-    if (open) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
-      return () => clearTimeout(timer);
-    } else {
-      setSearch("");
-    }
-  }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          type="button"
+          className="w-full h-9 justify-between font-normal text-left px-3 overflow-hidden"
+        >
+          <span className="truncate">
+            {selectedMaterial ? selectedMaterial.name : "Select material..."}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[400px] p-0 overflow-hidden">
+        <DialogHeader className="p-4 border-b">
+          <DialogTitle>Select Material</DialogTitle>
+          <DialogDescription>Search and select a material for this style.</DialogDescription>
+        </DialogHeader>
+        <div className="p-4 border-b bg-secondary/20">
+          <div className="relative flex items-center">
+            <SearchIcon className="absolute left-3 h-4 w-4 opacity-50" />
+            <Input
+              placeholder="Search materials..."
+              className="h-10 pl-10 w-full bg-background"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+        </div>
+        <ScrollArea className="h-[300px]">
+          <div className="p-2 space-y-1">
+            {filteredMaterials.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                No materials found.
+              </div>
+            ) : (
+              filteredMaterials.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground transition-colors",
+                    selectedMaterialId === m.id && "bg-accent/50"
+                  )}
+                  onClick={() => {
+                    onSelect(m);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <div className={cn(
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-primary",
+                    selectedMaterialId === m.id ? "bg-primary text-primary-foreground" : "opacity-30"
+                  )}>
+                    {selectedMaterialId === m.id && <Check className="h-3 w-3" />}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate font-medium">{m.name}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                      {m.category} • ${m.unitCost.toFixed(2)}/{m.unit}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
+function BOMItemRow({ 
+  item, 
+  updateBOMItem, 
+  removeBOMItem 
+}: { 
+  item: BOMItemWithId; 
+  updateBOMItem: (uiId: string, updates: Partial<BOMItemWithId>) => void;
+  removeBOMItem: (uiId: string) => void;
+}) {
   return (
     <div className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
       <div className="col-span-6 space-y-1.5">
         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
-        
-        <Popover open={open} onOpenChange={setOpen} modal={false}>
-          <PopoverTrigger asChild>
-            <Button 
-              variant="outline" 
-              role="combobox" 
-              type="button"
-              className="w-full h-9 justify-between font-normal text-left px-3 overflow-hidden"
-            >
-              <span className="truncate">
-                {item.materialId ? (SAMPLE_MATERIALS.find(m => m.id === item.materialId)?.name || "Select material...") : "Select material..."}
-              </span>
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent 
-            className="w-[300px] p-0 shadow-xl" 
-            align="start"
-            // Stop key events from bubbling to Dialog
-            onKeyDown={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            // Prevent Radix from fighting over focus with the input
-            onOpenAutoFocus={(e) => e.preventDefault()}
-          >
-            <div className="p-2 border-b" onKeyDown={(e) => e.stopPropagation()}>
-              <div className="relative flex items-center">
-                <SearchIcon className="absolute left-2 h-4 w-4 opacity-50" />
-                <Input
-                  ref={inputRef}
-                  placeholder="Search materials..."
-                  className="h-9 pl-8 w-full"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  // CRITICAL: Stop propagation across ALL key events
-                  onKeyDown={(e) => e.stopPropagation()}
-                  onKeyUp={(e) => e.stopPropagation()}
-                  onKeyPress={(e) => e.stopPropagation()}
-                  onFocus={(e) => e.stopPropagation()}
-                />
-              </div>
-            </div>
-            <ScrollArea className="h-[200px]">
-              <div className="p-1">
-                {filteredMaterials.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground">
-                    No materials found.
-                  </div>
-                ) : (
-                  filteredMaterials.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm text-left hover:bg-accent hover:text-accent-foreground outline-none transition-colors",
-                        item.materialId === m.id && "bg-accent/50"
-                      )}
-                      onClick={() => {
-                        updateBOMItem(item.uiId, { materialId: m.id });
-                        setOpen(false);
-                      }}
-                    >
-                      <Check className={cn("h-4 w-4 shrink-0", item.materialId === m.id ? "opacity-100" : "opacity-0")} />
-                      <div className="flex flex-col min-w-0">
-                        <span className="truncate font-medium">{m.name}</span>
-                        <span className="text-[10px] text-muted-foreground">${m.unitCost.toFixed(2)}/{m.unit}</span>
-                      </div>
-                    </button>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </PopoverContent>
-        </Popover>
+        <MaterialPicker 
+          selectedMaterialId={item.materialId} 
+          onSelect={(m) => updateBOMItem(item.uiId, { materialId: m.id, materialName: m.name })} 
+        />
       </div>
       <div className="col-span-2 space-y-1.5">
         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>
@@ -255,14 +255,7 @@ export default function StylesPage() {
     if (!editingStyle) return;
     const newBOM = editingStyle.bom.map(item => {
       if (item.uiId === uiId) {
-        let updated = { ...item, ...updates };
-        if (updates.materialId) {
-          const mat = SAMPLE_MATERIALS.find(m => m.id === updates.materialId);
-          if (mat) {
-            updated.materialName = mat.name;
-          }
-        }
-        return updated;
+        return { ...item, ...updates };
       }
       return item;
     });
@@ -281,7 +274,6 @@ export default function StylesPage() {
 
     setIsSaving(true);
     
-    // Auto-calculate cost based on BOM
     let calculatedCost = 0;
     editingStyle.bom.forEach(item => {
       const mat = SAMPLE_MATERIALS.find(m => m.id === item.materialId);
@@ -422,7 +414,7 @@ export default function StylesPage() {
           <form onSubmit={handleSaveStyle} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 pb-2">
               <DialogTitle>
-                {styles.some(s => s.id === editingStyle?.id) ? "Edit Style" : "Create New Style"}
+                {editingStyle?.id && styles.some(s => s.id === editingStyle.id) ? "Edit Style" : "Create New Style"}
               </DialogTitle>
               <DialogDescription>
                 Build your fence style step-by-step: basics, specifications, and materials.
@@ -431,7 +423,6 @@ export default function StylesPage() {
             
             <ScrollArea className="flex-1 px-6">
               <div className="space-y-6 py-4">
-                {/* Step 1: Basics */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">1. Style Basics</h4>
                   <div className="grid grid-cols-2 gap-4">
@@ -468,7 +459,6 @@ export default function StylesPage() {
 
                 <Separator />
 
-                {/* Step 2: Specs */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">2. Specifications</h4>
                   <div className="grid grid-cols-2 gap-4">
@@ -512,7 +502,6 @@ export default function StylesPage() {
 
                 <Separator />
 
-                {/* Step 3: Materials (BOM) */}
                 <div className="space-y-4 pb-8">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">3. Materials (Bill of Materials)</h4>

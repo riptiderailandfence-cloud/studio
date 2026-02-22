@@ -11,7 +11,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Info, Pencil, Save, X, Trash2, LayoutGrid } from "lucide-react";
+import { Plus, Info, Pencil, Save, X, Trash2, LayoutGrid, Check, ChevronsUpDown, Search as SearchIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StyleOptimizer } from "@/components/styles/style-optimizer";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,6 +36,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export default function StylesPage() {
   const [styles, setStyles] = useState<Style[]>(SAMPLE_STYLES);
@@ -45,6 +47,9 @@ export default function StylesPage() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<Style | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Material Search State for BOM Builder
+  const [matSearch, setMatSearch] = useState("");
 
   const filteredStyles = useMemo(() => {
     return styles.filter((style) => {
@@ -149,6 +154,15 @@ export default function StylesPage() {
       setIsEditorOpen(false);
     }, 600);
   };
+
+  const searchedMaterials = useMemo(() => {
+    if (!matSearch) return SAMPLE_MATERIALS;
+    const search = matSearch.toLowerCase();
+    return SAMPLE_MATERIALS.filter(m => 
+      m.name.toLowerCase().includes(search) || 
+      m.category.toLowerCase().includes(search)
+    );
+  }, [matSearch]);
 
   return (
     <div className="space-y-6">
@@ -360,19 +374,59 @@ export default function StylesPage() {
                         <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
                           <div className="col-span-6 space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
-                            <Select 
-                              value={item.materialId} 
-                              onValueChange={(val) => updateBOMItem(idx, { materialId: val })}
-                            >
-                              <SelectTrigger className="h-9">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SAMPLE_MATERIALS.map(m => (
-                                  <SelectItem key={m.id} value={m.id}>{m.name} (${m.unitCost}/{m.unit})</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            
+                            <Popover onOpenChange={(open) => !open && setMatSearch("")}>
+                              <PopoverTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  role="combobox" 
+                                  className="w-full h-9 justify-between font-normal"
+                                >
+                                  <span className="truncate">
+                                    {item.materialId ? SAMPLE_MATERIALS.find(m => m.id === item.materialId)?.name : "Select material..."}
+                                  </span>
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[300px] p-0" align="start">
+                                <div className="flex items-center border-b px-3">
+                                  <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                  <Input
+                                    placeholder="Search materials..."
+                                    className="h-10 w-full border-0 focus-visible:ring-0 px-0"
+                                    value={matSearch}
+                                    onChange={(e) => setMatSearch(e.target.value)}
+                                  />
+                                </div>
+                                <ScrollArea className="h-[200px]">
+                                  <div className="p-1">
+                                    {searchedMaterials.length === 0 ? (
+                                      <div className="p-4 text-center text-sm text-muted-foreground">
+                                        No material found.
+                                      </div>
+                                    ) : (
+                                      searchedMaterials.map((m) => (
+                                        <Button
+                                          key={m.id}
+                                          variant="ghost"
+                                          className="w-full justify-start font-normal text-sm gap-2"
+                                          onClick={() => {
+                                            updateBOMItem(idx, { materialId: m.id });
+                                            setMatSearch("");
+                                          }}
+                                        >
+                                          <Check className={cn("h-4 w-4", item.materialId === m.id ? "opacity-100" : "opacity-0")} />
+                                          <div className="flex flex-col items-start overflow-hidden">
+                                            <span className="truncate w-full">{m.name}</span>
+                                            <span className="text-[10px] text-muted-foreground">${m.unitCost}/{m.unit}</span>
+                                          </div>
+                                        </Button>
+                                      ))
+                                    )}
+                                  </div>
+                                </ScrollArea>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                           <div className="col-span-2 space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label>

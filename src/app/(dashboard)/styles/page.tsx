@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { SAMPLE_STYLES, SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Style, BOMItem, Material } from "@/lib/types";
 import { 
@@ -39,18 +40,31 @@ import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+// Helper for BOM items with local UI IDs
+interface BOMItemWithId extends BOMItem {
+  uiId: string;
+}
+
 export default function StylesPage() {
   const [styles, setStyles] = useState<Style[]>(SAMPLE_STYLES);
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingStyle, setEditingStyle] = useState<Style | null>(null);
+  const [editingStyle, setEditingStyle] = useState<(Omit<Style, 'bom'> & { bom: BOMItemWithId[] }) | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Material Search State for BOM Builder
+  // Material Search State
   const [matSearch, setMatSearch] = useState("");
   const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus search input when popover opens
+  useEffect(() => {
+    if (openPopoverId && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 10);
+    }
+  }, [openPopoverId]);
 
   const filteredStyles = useMemo(() => {
     return styles.filter((style) => {
@@ -60,7 +74,10 @@ export default function StylesPage() {
   }, [styles, categoryFilter]);
 
   const handleEdit = (style: Style) => {
-    setEditingStyle({ ...style });
+    setEditingStyle({ 
+      ...style, 
+      bom: style.bom.map(item => ({ ...item, uiId: crypto.randomUUID() })) 
+    });
     setIsEditorOpen(true);
   };
 
@@ -82,9 +99,10 @@ export default function StylesPage() {
 
   const addBOMItem = () => {
     if (!editingStyle) return;
-    const newItem: BOMItem = {
+    const newItem: BOMItemWithId = {
+      uiId: crypto.randomUUID(),
       materialId: '',
-      materialName: 'Select a material',
+      materialName: '',
       qtyPerUnit: 1,
       wastePct: 0.05
     };
@@ -94,24 +112,27 @@ export default function StylesPage() {
     });
   };
 
-  const updateBOMItem = (index: number, updates: Partial<BOMItem>) => {
+  const updateBOMItem = (uiId: string, updates: Partial<BOMItemWithId>) => {
     if (!editingStyle) return;
-    const newBOM = [...editingStyle.bom];
-    
-    if (updates.materialId) {
-      const mat = SAMPLE_MATERIALS.find(m => m.id === updates.materialId);
-      if (mat) {
-        updates.materialName = mat.name;
+    const newBOM = editingStyle.bom.map(item => {
+      if (item.uiId === uiId) {
+        let updated = { ...item, ...updates };
+        if (updates.materialId) {
+          const mat = SAMPLE_MATERIALS.find(m => m.id === updates.materialId);
+          if (mat) {
+            updated.materialName = mat.name;
+          }
+        }
+        return updated;
       }
-    }
-    
-    newBOM[index] = { ...newBOM[index], ...updates };
+      return item;
+    });
     setEditingStyle({ ...editingStyle, bom: newBOM });
   };
 
-  const removeBOMItem = (index: number) => {
+  const removeBOMItem = (uiId: string) => {
     if (!editingStyle) return;
-    const newBOM = editingStyle.bom.filter((_, i) => i !== index);
+    const newBOM = editingStyle.bom.filter(item => item.uiId !== uiId);
     setEditingStyle({ ...editingStyle, bom: newBOM });
   };
 
@@ -131,8 +152,9 @@ export default function StylesPage() {
       }
     });
 
-    const styleToSave = {
+    const styleToSave: Style = {
       ...editingStyle,
+      bom: editingStyle.bom.map(({ uiId, ...rest }) => rest), // Remove UI IDs before saving
       costPerUnit: calculatedCost > 0 ? calculatedCost : editingStyle.costPerUnit
     };
 
@@ -264,10 +286,12 @@ export default function StylesPage() {
 
       {/* Style Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="sm:max-w-[700px] h-[90vh] flex flex-col p-0">
-          <form onSubmit={handleSaveStyle} className="flex flex-col h-full">
+        <DialogContent className="sm:max-w-[700px] h-[90vh] flex flex-col p-0 overflow-hidden">
+          <form onSubmit={handleSaveStyle} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 pb-2">
-              <DialogTitle>{editingStyle?.id === editingStyle?.id && styles.every(s => s.id !== editingStyle?.id) ? "Create New Style" : "Edit Style"}</DialogTitle>
+              <DialogTitle>
+                {styles.some(s => s.id === editingStyle?.id) ? "Edit Style" : "Create New Style"}
+              </DialogTitle>
               <DialogDescription>
                 Build your fence style step-by-step: basics, specifications, and materials.
               </DialogDescription>
@@ -371,16 +395,17 @@ export default function StylesPage() {
                         <p className="text-xs text-muted-foreground italic">No materials added. Build your BOM to auto-calculate costs.</p>
                       </div>
                     ) : (
-                      editingStyle?.bom.map((item, idx) => (
-                        <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
+                      editingStyle?.bom.map((item) => (
+                        <div key={item.uiId} className="grid grid-cols-12 gap-2 items-end bg-secondary/20 p-3 rounded-lg border border-slate-200">
                           <div className="col-span-6 space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
                             
                             <Popover 
-                              open={openPopoverId === `bom-${idx}`} 
+                              modal={true}
+                              open={openPopoverId === item.uiId} 
                               onOpenChange={(open) => {
                                 if (open) {
-                                  setOpenPopoverId(`bom-${idx}`);
+                                  setOpenPopoverId(item.uiId);
                                   setMatSearch("");
                                 } else {
                                   setOpenPopoverId(null);
@@ -392,7 +417,7 @@ export default function StylesPage() {
                                   variant="outline" 
                                   role="combobox" 
                                   type="button"
-                                  className="w-full h-9 justify-between font-normal text-left px-3"
+                                  className="w-full h-9 justify-between font-normal text-left px-3 overflow-hidden"
                                 >
                                   <span className="truncate">
                                     {item.materialId ? (SAMPLE_MATERIALS.find(m => m.id === item.materialId)?.name || "Select material...") : (item.materialName || "Select material...")}
@@ -400,17 +425,18 @@ export default function StylesPage() {
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-[300px] p-0" align="start">
-                                <div className="flex items-center border-b px-3">
+                              <PopoverContent className="w-[300px] p-0 shadow-xl" align="start">
+                                <div className="flex items-center border-b px-3 bg-white">
                                   <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                                   <Input
+                                    ref={searchInputRef}
                                     placeholder="Search materials..."
                                     className="h-10 w-full border-0 focus-visible:ring-0 px-0"
                                     value={matSearch}
                                     onChange={(e) => setMatSearch(e.target.value)}
                                   />
                                 </div>
-                                <ScrollArea className="h-[200px]">
+                                <ScrollArea className="h-[200px] bg-white">
                                   <div className="p-1">
                                     {searchedMaterials.length === 0 ? (
                                       <div className="p-4 text-center text-sm text-muted-foreground">
@@ -426,7 +452,7 @@ export default function StylesPage() {
                                             item.materialId === m.id && "bg-accent/50"
                                           )}
                                           onClick={() => {
-                                            updateBOMItem(idx, { materialId: m.id });
+                                            updateBOMItem(item.uiId, { materialId: m.id });
                                             setOpenPopoverId(null);
                                           }}
                                         >
@@ -450,22 +476,22 @@ export default function StylesPage() {
                               step="0.1"
                               className="h-9"
                               value={item.qtyPerUnit} 
-                              onChange={(e) => updateBOMItem(idx, { qtyPerUnit: parseFloat(e.target.value) || 0 })}
+                              onChange={(e) => updateBOMItem(item.uiId, { qtyPerUnit: parseFloat(e.target.value) || 0 })}
                             />
                           </div>
                           <div className="col-span-3 space-y-1.5">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Waste %</Label>
                             <Input 
                               type="number" 
-                              step="0.01"
+                              step="1"
                               className="h-9"
                               value={((item.wastePct || 0) * 100).toFixed(0)} 
-                              onChange={(e) => updateBOMItem(idx, { wastePct: (parseFloat(e.target.value) || 0) / 100 })}
+                              onChange={(e) => updateBOMItem(item.uiId, { wastePct: (parseFloat(e.target.value) || 0) / 100 })}
                               placeholder="5"
                             />
                           </div>
                           <div className="col-span-1 flex justify-end">
-                            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeBOMItem(idx)}>
+                            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeBOMItem(item.uiId)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

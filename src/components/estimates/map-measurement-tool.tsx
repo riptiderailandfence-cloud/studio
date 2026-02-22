@@ -46,6 +46,11 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
 
   const SCALE_FACTOR = 0.5; // Simulated: 1 pixel = 0.5 feet
 
+  // Sync address prop to search query when it changes
+  useEffect(() => {
+    if (address) setSearchQuery(address);
+  }, [address]);
+
   const handleMapClick = (e: React.MouseEvent) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -70,9 +75,13 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
     setTotalFeet(Math.round(dist * SCALE_FACTOR));
   }, [points]);
 
-  const handleReset = () => setPoints([]);
+  const handleReset = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPoints([]);
+  };
 
-  const handleApply = () => {
+  const handleApply = (e: React.MouseEvent) => {
+    e.stopPropagation();
     onApply(totalFeet);
     setIsOpen(false);
     setPoints([]);
@@ -127,7 +136,7 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           </div>
           
           {/* Drawing Canvas */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md">
+          <svg className="absolute inset-0 w-full h-full pointer-events-none drop-shadow-md z-10">
             {points.length > 0 && points.map((p, i) => (
               <g key={i}>
                 <circle cx={p.x} cy={p.y} r="5" fill="white" stroke="hsl(var(--primary))" strokeWidth="2" />
@@ -157,7 +166,7 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           </svg>
 
           {/* Map UI Overlays */}
-          <div className="absolute top-4 left-4 flex flex-col gap-2">
+          <div className="absolute top-4 left-4 flex flex-col gap-2 z-20" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white/95 backdrop-blur-sm p-1 rounded-lg shadow-lg border flex flex-col">
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" title="Zoom In"><Plus className="h-4 w-4" /></Button>
               <Separator />
@@ -175,7 +184,7 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           </div>
 
           {points.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white pointer-events-none transition-opacity duration-300">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white pointer-events-none transition-opacity duration-300 z-10">
               <div className="bg-slate-900/80 p-6 rounded-2xl text-center space-y-4 backdrop-blur-md border border-white/20 animate-in fade-in zoom-in-95">
                 <div className="h-16 w-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto border border-primary/50">
                   <MousePointer2 className="h-8 w-8 text-primary animate-pulse" />
@@ -189,7 +198,10 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           )}
 
           {/* Stats Bar */}
-          <div className="absolute bottom-6 right-6 bg-slate-900/90 backdrop-blur-md p-5 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-6 animate-in slide-in-from-bottom-4">
+          <div 
+            className="absolute bottom-6 right-6 bg-slate-900/90 backdrop-blur-md p-5 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-6 animate-in slide-in-from-bottom-4 z-20"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="space-y-1">
               <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Calculated Length</p>
               <div className="flex items-baseline gap-1">
@@ -209,7 +221,7 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           </div>
         </div>
 
-        <DialogFooter className="p-6 border-t bg-slate-50 flex justify-between items-center sm:justify-between">
+        <DialogFooter className="p-6 border-t bg-slate-50 flex justify-between items-center sm:justify-between z-20">
           <Button variant="ghost" onClick={handleReset} className="text-destructive hover:bg-destructive/10 gap-2">
             <Trash2 className="h-4 w-4" /> Clear All Points
           </Button>

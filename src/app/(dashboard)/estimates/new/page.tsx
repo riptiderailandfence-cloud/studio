@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -38,6 +37,13 @@ interface ProjectSection {
   feet: number;
 }
 
+interface GateEntry {
+  id: string;
+  styleId: string;
+  qty: number;
+  location: string;
+}
+
 export default function NewEstimatePage() {
   const [step, setStep] = useState(1);
   const [mounted, setMounted] = useState(false);
@@ -53,7 +59,7 @@ export default function NewEstimatePage() {
 
   const [enableDemo, setEnableDemo] = useState(false);
   const [demoFeet, setDemoFeet] = useState<number>(0);
-  const [gates, setGates] = useState<{ id: string, styleId: string, qty: number }[]>([]);
+  const [gates, setGates] = useState<GateEntry[]>([]);
   const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('margin');
   const [pricingValue, setPricingValue] = useState<number>(0.3);
 
@@ -87,11 +93,11 @@ export default function NewEstimatePage() {
   };
 
   const addGate = () => {
-    setGates([...gates, { id: crypto.randomUUID(), styleId: "", qty: 1 }]);
+    setGates([...gates, { id: crypto.randomUUID(), styleId: "", qty: 1, location: "" }]);
   };
 
-  const updateGate = (id: string, styleId: string, qty: number) => {
-    setGates(gates.map(g => g.id === id ? { ...g, styleId, qty } : g));
+  const updateGate = (id: string, updates: Partial<GateEntry>) => {
+    setGates(gates.map(g => g.id === id ? { ...g, ...updates } : g));
   };
 
   const removeGate = (id: string) => {
@@ -407,9 +413,9 @@ export default function NewEstimatePage() {
                 )}
                 {gates.map((g) => (
                   <div key={g.id} className="grid grid-cols-12 gap-4 items-end p-4 border rounded-2xl bg-secondary/10">
-                    <div className="col-span-6 space-y-2">
+                    <div className="col-span-4 space-y-2">
                       <Label>Gate Style</Label>
-                      <Select value={g.styleId} onValueChange={(v) => updateGate(g.id, v, g.qty)}>
+                      <Select value={g.styleId} onValueChange={(v) => updateGate(g.id, { styleId: v })}>
                         <SelectTrigger>
                           <SelectValue placeholder="Pick Gate Style" />
                         </SelectTrigger>
@@ -420,19 +426,29 @@ export default function NewEstimatePage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-3 space-y-2">
+                    <div className="col-span-4 space-y-2">
+                      <Label>Location</Label>
+                      <Input 
+                        placeholder="e.g. Front Right" 
+                        value={g.location} 
+                        onChange={(e) => updateGate(g.id, { location: e.target.value })} 
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-2">
                       <Label>Quantity</Label>
                       <Input 
                         type="number" 
                         value={g.qty} 
-                        onChange={(e) => updateGate(g.id, g.styleId, parseInt(e.target.value) || 1)} 
+                        onChange={(e) => updateGate(g.id, { qty: parseInt(e.target.value) || 1 })} 
                       />
                     </div>
-                    <div className="col-span-2 text-right pb-3">
-                      <span className="font-mono font-bold">${((gateStyles.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * g.qty).toFixed(2)}</span>
+                    <div className="col-span-1 text-right pb-3">
+                      <span className="font-mono font-bold text-sm">
+                        ${((gateStyles.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * g.qty).toFixed(2)}
+                      </span>
                     </div>
                     <div className="col-span-1 pb-1">
-                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeGate(g.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeGate(g.id)}>
                         <Trash className="h-4 w-4" />
                       </Button>
                     </div>

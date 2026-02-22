@@ -15,8 +15,12 @@ export const SAMPLE_TENANT: Tenant = {
 export const SAMPLE_MATERIALS: Material[] = [
   { id: 'mat_1', tenantId: 'tenant_1', name: 'Cedar Picket 6ft', unit: 'each', unitCost: 4.5, category: 'Wood' },
   { id: 'mat_2', tenantId: 'tenant_1', name: '2x4x8 Treated Rail', unit: 'each', unitCost: 8.2, category: 'Wood' },
-  { id: 'mat_3', tenantId: 'tenant_1', name: '4x4x8 Treated Post', unit: 'each', unitCost: 12.5, category: 'Post' },
-  { id: 'mat_4', tenantId: 'tenant_1', name: 'Concrete Bag 80lb', unit: 'each', unitCost: 6.5, category: 'Supplies' }
+  { id: 'mat_3', tenantId: 'tenant_1', name: '4x4x8 Treated Post', unit: 'each', unitCost: 12.5, category: 'Wood' },
+  { id: 'mat_4', tenantId: 'tenant_1', name: 'Concrete Bag 80lb', unit: 'each', unitCost: 6.5, category: 'Other' },
+  { id: 'mat_5', tenantId: 'tenant_1', name: 'Vinyl Privacy Panel 6x8', unit: 'each', unitCost: 85.0, category: 'Vinyl' },
+  { id: 'mat_6', tenantId: 'tenant_1', name: 'Aluminum Picket 5ft', unit: 'each', unitCost: 12.0, category: 'Aluminum' },
+  { id: 'mat_7', tenantId: 'tenant_1', name: '9ga Chain Link Fabric 4ft', unit: 'linear_foot', unitCost: 3.2, category: 'Chain Link' },
+  { id: 'mat_8', tenantId: 'tenant_1', name: 'Post Cap - Pyramid', unit: 'each', unitCost: 2.5, category: 'Other' }
 ];
 
 export const SAMPLE_STYLES: Style[] = [

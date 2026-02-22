@@ -152,7 +152,9 @@ export default function NewEstimatePage() {
       const feet = isNaN(sec.feet) ? 0 : sec.feet;
       
       const fCost = (fStyle?.costPerUnit || 0) * feet;
-      const pCost = (pStyle?.costPerUnit || 0) * (feet / 8);
+      const pSpacing = pStyle?.sectionLength || 8;
+      const postQty = feet > 0 ? Math.ceil(feet / pSpacing) + 1 : 0;
+      const pCost = (pStyle?.costPerUnit || 0) * postQty;
       
       materialsTotal += (fCost + pCost);
       calculatedManHours += (feet * manHoursPerFoot);

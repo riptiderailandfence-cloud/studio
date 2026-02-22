@@ -237,7 +237,7 @@ export function StylesManager({ type }: StylesManagerProps) {
       type: type,
       category: 'Wood',
       measurementBasis: type === 'fence' ? 'foot' : 'psc',
-      sectionLength: type === 'fence' ? 8 : undefined,
+      sectionLength: type === 'fence' ? 8 : (type === 'post' ? 8 : undefined),
       bom: [],
       costPerUnit: 0
     });
@@ -494,9 +494,11 @@ export function StylesManager({ type }: StylesManagerProps) {
                         </SelectContent>
                       </Select>
                     </div>
-                    {type === 'fence' && editingStyle?.measurementBasis === 'section' && (
+                    {(type === 'fence' || type === 'post') && (
                       <div className="grid gap-2">
-                        <Label htmlFor="sectionLength">Section Length (ft)</Label>
+                        <Label htmlFor="sectionLength">
+                          {type === 'fence' ? 'Section Length (ft)' : 'Post Spacing (ft)'}
+                        </Label>
                         <Input 
                           id="sectionLength" 
                           type="number"

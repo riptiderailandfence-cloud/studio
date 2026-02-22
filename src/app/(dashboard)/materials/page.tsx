@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { SAMPLE_MATERIALS } from "@/lib/mock-data";
-import { Material } from "@/lib/types";
+import { Material, MaterialUnit } from "@/lib/types";
 import { 
   Table, 
   TableBody, 
@@ -67,7 +67,7 @@ export default function MaterialsPage() {
       tenantId: 'tenant_1',
       name: '',
       category: 'Other',
-      unit: 'each',
+      unit: 'psc',
       unitCost: 0,
       description: ''
     });
@@ -176,7 +176,7 @@ export default function MaterialsPage() {
                       {mat.category}
                     </div>
                   </TableCell>
-                  <TableCell className="capitalize">{mat.unit.replace('_', ' ')}</TableCell>
+                  <TableCell className="uppercase">{mat.unit}</TableCell>
                   <TableCell className="font-mono">${mat.unitCost.toFixed(2)}</TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" className="gap-1" onClick={() => handleEdit(mat)}>
@@ -260,9 +260,14 @@ export default function MaterialsPage() {
                       <SelectValue placeholder="Select Unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="each">Each</SelectItem>
-                      <SelectItem value="linear_foot">Linear Foot</SelectItem>
-                      <SelectItem value="section">Section</SelectItem>
+                      <SelectItem value="board">Board</SelectItem>
+                      <SelectItem value="ft">Foot (ft)</SelectItem>
+                      <SelectItem value="psc">Piece (psc)</SelectItem>
+                      <SelectItem value="box">Box</SelectItem>
+                      <SelectItem value="lb">Pound (lb)</SelectItem>
+                      <SelectItem value="yard">Yard</SelectItem>
+                      <SelectItem value="roll">Roll</SelectItem>
+                      <SelectItem value="bag">Bag</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -32,11 +32,13 @@ export interface Customer {
   createdAt: string;
 }
 
+export type MaterialUnit = 'board' | 'ft' | 'psc' | 'box' | 'lb' | 'yard' | 'roll' | 'bag';
+
 export interface Material {
   id: string;
   tenantId: string;
   name: string;
-  unit: 'linear_foot' | 'each' | 'section';
+  unit: MaterialUnit;
   unitCost: number;
   category: string;
   description?: string;

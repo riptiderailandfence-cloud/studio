@@ -143,24 +143,24 @@ export default function NewEstimatePage() {
       const fStyle = fenceStyles.find(s => s.id === sec.fenceStyleId);
       const pStyle = postStyles.find(s => s.id === sec.postStyleId);
       
-      const fCost = (fStyle?.costPerUnit || 0) * sec.feet;
-      const pCost = (pStyle?.costPerUnit || 0) * (sec.feet / 8);
+      const fCost = (fStyle?.costPerUnit || 0) * (isNaN(sec.feet) ? 0 : sec.feet);
+      const pCost = (pStyle?.costPerUnit || 0) * ((isNaN(sec.feet) ? 0 : sec.feet) / 8);
       
       materialsTotal += (fCost + pCost);
-      calculatedManHours += (sec.feet * manHoursPerFoot);
-      totalFeetCount += sec.feet;
+      calculatedManHours += ((isNaN(sec.feet) ? 0 : sec.feet) * manHoursPerFoot);
+      totalFeetCount += (isNaN(sec.feet) ? 0 : sec.feet);
     });
 
     const gateMaterialCost = gates.reduce((acc, g) => {
       const style = gateStyles.find(gs => gs.id === g.styleId);
-      return acc + (style?.costPerUnit || 0) * g.qty;
+      return acc + (style?.costPerUnit || 0) * (isNaN(g.qty) ? 0 : g.qty);
     }, 0);
     materialsTotal += gateMaterialCost;
     
-    const gateManHours = gates.reduce((acc, g) => acc + (g.qty * gateLaborRate), 0);
+    const gateManHours = gates.reduce((acc, g) => acc + ((isNaN(g.qty) ? 0 : g.qty) * gateLaborRate), 0);
     calculatedManHours += gateManHours;
 
-    const demoManHours = enableDemo ? (demoFeet * demoRate) : 0;
+    const demoManHours = enableDemo ? ((isNaN(demoFeet) ? 0 : demoFeet) * demoRate) : 0;
     calculatedManHours += demoManHours;
 
     const finalManHours = manualLaborHours !== null && !isNaN(manualLaborHours) ? manualLaborHours : calculatedManHours;
@@ -643,7 +643,7 @@ export default function NewEstimatePage() {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-400 flex items-center gap-1">
-                            Profit ({(isNaN(profitPct) ? 0 : profitPct * 100).toFixed(0)}%)
+                            Net Profit ({(isNaN(profitPct) ? 0 : profitPct * 100).toFixed(0)}%)
                           </span>
                           <span className="font-mono text-green-400">+${totals.profitAmount.toFixed(2)}</span>
                         </div>

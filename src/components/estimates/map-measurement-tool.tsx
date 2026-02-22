@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   Dialog, 
   DialogContent, 
@@ -20,7 +20,8 @@ import {
   Navigation,
   Plus,
   Minus,
-  Check
+  Check,
+  MapPin
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +32,8 @@ import {
   useMapsLibrary, 
   MapControl, 
   ControlPosition,
-  Marker
+  AdvancedMarker,
+  Pin
 } from "@vis.gl/react-google-maps";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -49,17 +51,23 @@ function Polyline({ path }: { path: google.maps.LatLngLiteral[] }) {
   const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   useEffect(() => {
-    if (!map) return;
+    if (!map || path.length < 2) {
+      if (polylineRef.current) polylineRef.current.setMap(null);
+      return;
+    }
 
-    polylineRef.current = new google.maps.Polyline({
-      path,
-      geodesic: true,
-      strokeColor: "#2563eb",
-      strokeOpacity: 0.8,
-      strokeWeight: 4,
-      map: map,
-      clickable: false
-    });
+    if (!polylineRef.current) {
+      polylineRef.current = new google.maps.Polyline({
+        geodesic: true,
+        strokeColor: "#2563eb",
+        strokeOpacity: 0.8,
+        strokeWeight: 4,
+        map: map,
+        clickable: false
+      });
+    }
+
+    polylineRef.current.setPath(path);
 
     return () => {
       if (polylineRef.current) polylineRef.current.setMap(null);
@@ -94,21 +102,20 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   }, [points, geometryLib]);
 
   const handleMapClick = useCallback((e: any) => {
-    // In @vis.gl, the detail contains the raw LatLng
     const latLng = e.detail?.latLng;
     if (!latLng) return;
     
-    setPoints(prev => [...prev, { lat: latLng.lat(), lng: latLng.lng() }]);
+    setPoints(prev => [...prev, { lat: latLng.lat, lng: latLng.lng }]);
   }, []);
 
   const handleSearch = useCallback(async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!searchQuery.trim() || !placesLib || !map) return;
+    if (!searchQuery.trim() || !map) return;
 
     setIsSearching(true);
     
     try {
-      // Use standard Geocoding or Places lookup
+      // Try Geocoding first
       const geocoder = new google.maps.Geocoder();
       geocoder.geocode({ address: searchQuery }, (results, status) => {
         if (status === "OK" && results?.[0]) {
@@ -123,21 +130,48 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
           }
           
           setSearchMarker(location.toJSON());
-          setPoints([]); // Clear points when moving to a new property
+          setPoints([]);
+          setIsSearching(false);
+        } else if (status === "REQUEST_DENIED" || status === "OVER_QUERY_LIMIT") {
+          // If Geocoding fails (likely not enabled), try Places Service if available
+          if (placesLib) {
+            const service = new google.maps.places.PlacesService(map);
+            service.findPlaceFromQuery({
+              query: searchQuery,
+              fields: ['geometry']
+            }, (results, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.geometry?.location) {
+                const location = results[0].geometry.location;
+                map.setCenter(location);
+                map.setZoom(20);
+                setSearchMarker(location.toJSON());
+                setPoints([]);
+              } else {
+                toast({
+                  title: "Search Error",
+                  description: "Please ensure the Geocoding API is enabled in your Google Cloud Console.",
+                  variant: "destructive"
+                });
+              }
+              setIsSearching(false);
+            });
+          } else {
+            setIsSearching(false);
+          }
         } else {
           toast({
             title: "Location Not Found",
             description: "Could not find the specified address. Please try again.",
             variant: "destructive"
           });
+          setIsSearching(false);
         }
-        setIsSearching(false);
       });
     } catch (err) {
       console.error("Search error:", err);
       setIsSearching(false);
     }
-  }, [searchQuery, placesLib, map, toast]);
+  }, [searchQuery, map, toast, placesLib]);
 
   const handleReset = () => {
     setPoints([]);
@@ -159,26 +193,25 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         onClick={handleMapClick}
         gestureHandling="greedy"
         disableDefaultUI={true}
-        clickableIcons={false}
         className="w-full h-full"
       >
         {/* Render the search marker if it exists */}
         {searchMarker && (
-          <Marker position={searchMarker} title="Project Location" />
+          <AdvancedMarker position={searchMarker}>
+            <Pin background={'#ef4444'} glyphColor={'#fff'} borderColor={'#000'} />
+          </AdvancedMarker>
         )}
 
         {/* Render measurement points */}
         {points.map((point, index) => (
-          <Marker 
+          <AdvancedMarker 
             key={`${index}-${point.lat}-${point.lng}`} 
             position={point}
-            label={{
-              text: (index + 1).toString(),
-              color: "white",
-              fontSize: "10px",
-              fontWeight: "bold"
-            }}
-          />
+          >
+            <div className="flex items-center justify-center w-6 h-6 bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white shadow-lg">
+              {index + 1}
+            </div>
+          </AdvancedMarker>
         ))}
 
         {/* Render the polyline connecting points */}
@@ -186,9 +219,9 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
 
         {/* Top Search Bar */}
         <MapControl position={ControlPosition.TOP_LEFT}>
-          <div className="m-4 flex gap-2 pointer-events-none" onClick={(e) => e.stopPropagation()}>
+          <div className="m-4 flex gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
             <form 
-              className="flex bg-white/95 backdrop-blur shadow-xl rounded-xl border p-1 w-80 pointer-events-auto"
+              className="flex bg-white shadow-xl rounded-xl border p-1 w-80"
               onSubmit={handleSearch}
             >
               <div className="relative flex-1">
@@ -215,8 +248,8 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
 
         {/* Bottom Stats & Action Bar */}
         <MapControl position={ControlPosition.BOTTOM_LEFT}>
-          <div className="m-4 flex flex-col gap-4 pointer-events-none" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-white/10 p-4 min-w-[220px] flex items-center gap-4 pointer-events-auto">
+          <div className="m-4 flex flex-col gap-3 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-slate-900 text-white rounded-xl shadow-2xl border border-white/10 p-4 min-w-[200px] flex items-center gap-4">
               <div className="space-y-0.5">
                 <p className="text-[10px] font-black uppercase text-primary tracking-widest">Total Length</p>
                 <div className="flex items-baseline gap-1">
@@ -242,7 +275,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
             
             <Button 
               onClick={handleApply} 
-              className="bg-primary hover:bg-primary/90 text-white shadow-lg font-bold h-12 w-full rounded-xl gap-2 pointer-events-auto"
+              className="bg-primary hover:bg-primary/90 text-white shadow-lg font-bold h-12 w-full rounded-xl gap-2"
               disabled={totalFeet === 0}
             >
               <Check className="h-4 w-4" /> Apply to Segment
@@ -252,8 +285,8 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
 
         {/* Zoom Controls */}
         <MapControl position={ControlPosition.RIGHT_BOTTOM}>
-          <div className="m-4 flex flex-col gap-2 pointer-events-none" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border flex flex-col overflow-hidden pointer-events-auto">
+          <div className="m-4 flex flex-col gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-white shadow-lg rounded-xl border flex flex-col overflow-hidden">
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none hover:bg-secondary" title="Zoom In" onClick={() => map?.setZoom((map.getZoom() || 0) + 1)}>
                 <Plus className="h-4 w-4" />
               </Button>
@@ -281,7 +314,6 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
 
 export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps) {
   const [isOpen, setIsOpen] = useState(false);
-  // Using the provided user API key directly in the component for functionality
   const apiKey = "AIzaSyC-4Uk3IhQ_OAsM2y1YSmse9eg66BE1Z_E";
 
   return (

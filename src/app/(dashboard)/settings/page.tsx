@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,8 +35,13 @@ import { Separator } from "@/components/ui/separator";
 import { SAMPLE_CREW } from "@/lib/mock-data";
 
 export default function SettingsPage() {
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Initialize from Crew Data
   const crewData = useMemo(() => {
     const size = SAMPLE_CREW.length;
@@ -66,6 +71,10 @@ export default function SettingsPage() {
       });
     }, 800);
   };
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

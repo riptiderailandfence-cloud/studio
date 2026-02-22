@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -115,7 +114,7 @@ export function MapMeasurementTool({ onApply, address }: MapMeasurementToolProps
           Measure on Map
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden bg-background">
+      <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden bg-background border-none">
         <DialogHeader className="p-4 border-b bg-card z-20 shadow-sm">
           <div className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-3">

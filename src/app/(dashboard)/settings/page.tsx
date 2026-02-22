@@ -16,12 +16,17 @@ import {
   Phone, 
   MapPin,
   Save,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Calculator,
+  Percent,
+  Hammer,
+  FlaskConical
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
@@ -42,13 +47,16 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
         <h2 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h2>
-        <p className="text-muted-foreground">Manage your business profile, templates, and payment integrations.</p>
+        <p className="text-muted-foreground">Manage your business profile, templates, and pricing logic.</p>
       </div>
 
       <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
           <TabsTrigger value="general" className="gap-2">
             <Building2 className="h-4 w-4" /> General
+          </TabsTrigger>
+          <TabsTrigger value="estimates" className="gap-2">
+            <Calculator className="h-4 w-4" /> Estimates
           </TabsTrigger>
           <TabsTrigger value="templates" className="gap-2">
             <FileText className="h-4 w-4" /> Templates
@@ -105,6 +113,92 @@ export default function SettingsPage() {
             <CardFooter className="border-t bg-secondary/10 px-6 py-4 flex justify-end">
               <Button onClick={handleSave} disabled={loading} className="gap-2">
                 <Save className="h-4 w-4" /> {loading ? "Saving..." : "Save Changes"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="estimates" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Estimate Configuration</CardTitle>
+              <CardDescription>Define the core math and logic used to build customer quotes.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              <div className="space-y-4">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Percent className="h-4 w-4" /> Pricing & Tax
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid gap-2">
+                    <Label>Default Pricing Method</Label>
+                    <Select defaultValue="margin">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="margin">Margin % (Profit / Revenue)</SelectItem>
+                        <SelectItem value="markup">Markup % (Profit / Cost)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Default Percentage (%)</Label>
+                    <Input type="number" defaultValue="30" placeholder="e.g. 30" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Sales Tax Rate (%)</Label>
+                    <Input type="number" step="0.01" defaultValue="8.25" placeholder="e.g. 8.25" />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Hammer className="h-4 w-4" /> Labor Settings
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid gap-2">
+                    <Label>Labor Multiplier</Label>
+                    <Input type="number" step="0.1" defaultValue="0.4" placeholder="e.g. 0.4 (40% of material cost)" />
+                    <p className="text-[11px] text-muted-foreground italic">Automatically adds this percentage of material costs as estimated labor.</p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Min. Job Fee ($)</Label>
+                    <Input type="number" defaultValue="500" placeholder="e.g. 500" />
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <FlaskConical className="h-4 w-4" /> Experience & Demo
+                </h4>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Enable AI Price Optimization</Label>
+                      <p className="text-xs text-muted-foreground">Show AI recommendations within the estimate builder based on history.</p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Demo Portal Experience</Label>
+                      <p className="text-xs text-muted-foreground">Populate client portals with sample project images and videos for walk-throughs.</p>
+                    </div>
+                    <Switch />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="border-t bg-secondary/10 px-6 py-4 flex justify-end">
+              <Button onClick={handleSave} disabled={loading} className="gap-2">
+                <Save className="h-4 w-4" /> {loading ? "Saving..." : "Update Estimate Logic"}
               </Button>
             </CardFooter>
           </Card>

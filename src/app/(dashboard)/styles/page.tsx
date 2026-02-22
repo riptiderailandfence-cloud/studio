@@ -411,7 +411,6 @@ export default function StylesPage() {
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
                             
                             <Popover 
-                              modal={false}
                               open={openPopoverId === item.uiId} 
                               onOpenChange={(open) => {
                                 if (open) {
@@ -439,29 +438,30 @@ export default function StylesPage() {
                                 className="w-[300px] p-0 shadow-xl" 
                                 align="start"
                                 onOpenAutoFocus={(e) => {
-                                  e.preventDefault(); // Prevent dialog focus trap from fighting
+                                  // This prevents the Dialog from fighting for focus when the popover opens
+                                  e.preventDefault();
                                   searchInputRef.current?.focus();
                                 }}
                               >
-                                <div 
-                                  className="flex items-center border-b px-3 bg-white"
-                                  onKeyDown={(e) => {
-                                    e.stopPropagation(); // CRITICAL: Stop propagation so Dialog doesn't eat the keys
-                                  }}
-                                >
-                                  <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                                  <Input
-                                    ref={searchInputRef}
-                                    placeholder="Search materials..."
-                                    className="h-10 w-full border-0 focus-visible:ring-0 px-0"
-                                    value={matSearch}
-                                    onChange={(e) => setMatSearch(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      e.stopPropagation(); // Double ensure typing works
-                                    }}
-                                  />
+                                <div className="p-2 border-b">
+                                  <div className="relative flex items-center">
+                                    <SearchIcon className="absolute left-2 h-4 w-4 opacity-50" />
+                                    <Input
+                                      ref={searchInputRef}
+                                      placeholder="Search materials..."
+                                      className="h-9 pl-8 w-full"
+                                      value={matSearch}
+                                      onChange={(e) => setMatSearch(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        // Stop propagation for key events to ensure the parent Dialog doesn't consume them
+                                        e.stopPropagation();
+                                      }}
+                                      onKeyUp={(e) => e.stopPropagation()}
+                                      onKeyPress={(e) => e.stopPropagation()}
+                                    />
+                                  </div>
                                 </div>
-                                <ScrollArea className="h-[200px] bg-white">
+                                <ScrollArea className="h-[200px]">
                                   <div className="p-1">
                                     {searchedMaterials.length === 0 ? (
                                       <div className="p-4 text-center text-sm text-muted-foreground">

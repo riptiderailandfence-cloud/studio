@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_CREW, SAMPLE_TENANT } from "@/lib/mock-data";
 import { Style, Customer } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
@@ -25,7 +26,8 @@ import {
   Briefcase,
   TrendingUp,
   Clock,
-  Zap
+  Zap,
+  Loader2
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -49,8 +51,10 @@ interface GateEntry {
 }
 
 export default function NewEstimatePage() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [mounted, setMounted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
@@ -230,6 +234,52 @@ export default function NewEstimatePage() {
     setProfitPct(value);
   };
 
+  const handleSaveEstimate = () => {
+    // Validation
+    if (!selectedCustomerId) {
+      toast({
+        title: "Missing Client",
+        description: "Please select a customer before saving.",
+        variant: "destructive"
+      });
+      setStep(1);
+      return;
+    }
+
+    if (!jobAddress) {
+      toast({
+        title: "Missing Address",
+        description: "Please provide a job site address.",
+        variant: "destructive"
+      });
+      setStep(1);
+      return;
+    }
+
+    const invalidSection = sections.find(s => !s.fenceStyleId || !s.feet);
+    if (invalidSection) {
+      toast({
+        title: "Incomplete Section",
+        description: "Please specify a style and footage for all fence segments.",
+        variant: "destructive"
+      });
+      setStep(2);
+      return;
+    }
+
+    setIsSaving(true);
+
+    // Mock save operation
+    setTimeout(() => {
+      setIsSaving(false);
+      toast({
+        title: "Estimate Created!",
+        description: `Successfully sent to ${selectedCustomer?.email}`,
+      });
+      router.push("/estimates");
+    }, 1500);
+  };
+
   if (!mounted) return null;
 
   return (
@@ -248,8 +298,12 @@ export default function NewEstimatePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={() => window.history.back()}>Cancel</Button>
-          <Button variant="outline" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1}>
+          <Button variant="ghost" onClick={() => router.back()} disabled={isSaving}>Cancel</Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setStep(Math.max(1, step - 1))} 
+            disabled={step === 1 || isSaving}
+          >
             <ChevronLeft className="h-4 w-4 mr-2" /> Back
           </Button>
           {step < 5 ? (
@@ -257,8 +311,19 @@ export default function NewEstimatePage() {
               Next <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button className="bg-green-600 hover:bg-green-700">
-              Save & Send Quote
+            <Button 
+              className="bg-green-600 hover:bg-green-700" 
+              onClick={handleSaveEstimate}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Save & Send Quote"
+              )}
             </Button>
           )}
         </div>

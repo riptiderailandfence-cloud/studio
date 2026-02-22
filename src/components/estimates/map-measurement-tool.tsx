@@ -30,7 +30,8 @@ import {
   useMap, 
   useMapsLibrary, 
   MapControl, 
-  ControlPosition 
+  ControlPosition,
+  Marker
 } from "@vis.gl/react-google-maps";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   const [totalFeet, setTotalFeet] = useState(0);
   const [searchQuery, setSearchQuery] = useState(address || "");
   const [isSearching, setIsSearching] = useState(false);
+  const [searchMarker, setSearchMarker] = useState<google.maps.LatLngLiteral | null>(null);
   
   const polylineRef = useRef<google.maps.Polyline | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -58,7 +60,6 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   useEffect(() => {
     if (!map || typeof google === 'undefined') return;
     
-    // Clear existing polyline
     if (polylineRef.current) polylineRef.current.setMap(null);
 
     polylineRef.current = new google.maps.Polyline({
@@ -67,7 +68,8 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
       strokeColor: "#2563eb",
       strokeOpacity: 0.8,
       strokeWeight: 4,
-      map: map
+      map: map,
+      clickable: false
     });
 
     return () => {
@@ -79,7 +81,6 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
   useEffect(() => {
     if (!map || !geometryLib || typeof google === 'undefined') return;
 
-    // Clear existing markers
     markersRef.current.forEach(marker => marker.setMap(null));
     
     markersRef.current = points.map((point, index) => 
@@ -99,14 +100,15 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
           strokeWeight: 2,
           strokeColor: "white",
           scale: 8
-        }
+        },
+        clickable: false
       })
     );
 
     if (points.length > 1) {
       const path = points.map(p => new google.maps.LatLng(p.lat, p.lng));
       const meters = geometryLib.spherical.computeLength(path);
-      setTotalFeet(Math.round(meters * 3.28084)); // Convert meters to feet
+      setTotalFeet(Math.round(meters * 3.28084));
     } else {
       setTotalFeet(0);
     }
@@ -124,7 +126,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
     setIsSearching(true);
     
     try {
-      // @ts-ignore - 'Place' is part of the newer JS SDK
+      // @ts-ignore
       if (placesLib.Place) {
         // @ts-ignore
         const { places } = await placesLib.Place.searchByText({
@@ -134,43 +136,34 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
 
         if (places && places.length > 0) {
           const place = places[0];
+          const location = place.location?.toJSON();
+          
           if (place.viewport) {
             map.fitBounds(place.viewport);
-          } else if (place.location) {
-            map.setCenter(place.location);
+          } else if (location) {
+            map.setCenter(location);
             map.setZoom(20);
           }
+          
+          if (location) {
+            setSearchMarker(location);
+          }
+          
           setPoints([]);
           setIsSearching(false);
           return;
         }
       }
     } catch (err) {
-      console.warn("Places API (New) not available, falling back to legacy service:", err);
+      console.warn("Places API error:", err);
     }
 
-    try {
-      const service = new google.maps.places.PlacesService(map);
-      service.findPlaceFromQuery(
-        { query: searchQuery, fields: ["geometry"] },
-        (results, status) => {
-          setIsSearching(false);
-          if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.geometry?.location) {
-            map.setCenter(results[0].geometry.location);
-            map.setZoom(20);
-            setPoints([]);
-          } else {
-            toast({
-              title: "Search Failed",
-              description: "Location not found. Please check the address.",
-              variant: "destructive"
-            });
-          }
-        }
-      );
-    } catch (err) {
-      setIsSearching(false);
-    }
+    setIsSearching(false);
+    toast({
+      title: "Location Not Found",
+      description: "Could not find the specified address. Please try again.",
+      variant: "destructive"
+    });
   }, [searchQuery, placesLib, map, toast]);
 
   const handleReset = () => {
@@ -193,12 +186,21 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
         onClick={handleMapClick}
         gestureHandling="greedy"
         disableDefaultUI={true}
+        clickableIcons={false}
         className="w-full h-full"
       >
+        {/* Searched Location Marker */}
+        {searchMarker && (
+          <Marker position={searchMarker} title="Job Site" />
+        )}
+
         {/* Top Controls: Search Bar */}
         <MapControl position={ControlPosition.TOP_LEFT}>
-          <div className="m-4 flex gap-2">
-            <div className="flex bg-white/95 backdrop-blur shadow-xl rounded-xl border p-1 w-80">
+          <div className="m-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
+            <form 
+              className="flex bg-white/95 backdrop-blur shadow-xl rounded-xl border p-1 w-80"
+              onSubmit={handleSearch}
+            >
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -206,25 +208,24 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
                   className="pl-10 h-10 border-0 focus-visible:ring-0 shadow-none bg-transparent"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
               <Button 
+                type="submit"
                 variant="ghost" 
                 size="icon" 
                 disabled={isSearching} 
-                onClick={() => handleSearch()}
                 className="h-10 w-10"
               >
                 {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
-            </div>
+            </form>
           </div>
         </MapControl>
 
-        {/* Bottom Controls: Stats & Zoom */}
+        {/* Bottom Controls: Stats & Apply */}
         <MapControl position={ControlPosition.BOTTOM_LEFT}>
-          <div className="m-4 flex flex-col gap-4">
+          <div className="m-4 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
             <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-white/10 p-4 min-w-[200px] flex items-center gap-4">
               <div className="space-y-0.5">
                 <p className="text-[10px] font-black uppercase text-primary tracking-widest">Length</p>
@@ -254,13 +255,14 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
               className="bg-primary hover:bg-primary/90 text-white shadow-lg font-bold h-12 w-full rounded-xl gap-2"
               disabled={totalFeet === 0}
             >
-              <Check className="h-4 w-4" /> Apply to Estimate
+              <Check className="h-4 w-4" /> Apply to Segment
             </Button>
           </div>
         </MapControl>
 
+        {/* Zoom Controls */}
         <MapControl position={ControlPosition.RIGHT_BOTTOM}>
-          <div className="m-4 flex flex-col gap-2">
+          <div className="m-4 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
             <div className="bg-white/95 backdrop-blur shadow-lg rounded-xl border flex flex-col overflow-hidden">
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none hover:bg-secondary" title="Zoom In" onClick={() => map?.setZoom((map.getZoom() || 0) + 1)}>
                 <Plus className="h-4 w-4" />
@@ -273,7 +275,7 @@ function MapContent({ address, onApply, closeDialog }: MapMeasurementToolProps &
           </div>
         </MapControl>
 
-        {/* Discrete Instruction Hint */}
+        {/* Instruction Hint */}
         {points.length === 0 && (
           <div className="absolute top-20 left-1/2 -translate-x-1/2 pointer-events-none">
             <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 shadow-xl flex items-center gap-3">

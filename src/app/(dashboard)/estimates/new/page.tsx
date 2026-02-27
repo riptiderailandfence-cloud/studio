@@ -115,6 +115,8 @@ function NewEstimateContent() {
       setGates([
         { id: 'g1', styleId: 'mat_1', qty: 1, location: 'Side Entrance' }
       ]);
+      setEnableDemo(false);
+      setDemoFeet(0);
       setStep(5); // Start at review if editing
     }
 
@@ -176,7 +178,7 @@ function NewEstimateContent() {
 
     const manHoursPerFoot = (crewSize * 8) / (dailyProductionFt || 1);
     const gateLaborRate = 4;
-    const demoRate = 0.1;
+    const demoRate = 0.1; // 0.1 man-hours per foot for demo
 
     sections.forEach(sec => {
       const fStyle = fenceStyles.find(s => s.id === sec.fenceStyleId);
@@ -478,6 +480,43 @@ function NewEstimateContent() {
 
           {step === 3 && (
             <div className="space-y-6">
+              <Card className="border-2 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Hammer className="h-5 w-5 text-primary" /> Site Preparation & Demo
+                  </CardTitle>
+                  <CardDescription>Include old fence removal in this estimate.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                   <div className="flex items-center justify-between p-4 border rounded-xl bg-secondary/10">
+                    <div className="space-y-0.5">
+                      <Label className="text-base">Existing Fence Removal (Demo)</Label>
+                      <p className="text-sm text-muted-foreground">Toggle this if you are tearing down an old fence.</p>
+                    </div>
+                    <Switch 
+                      checked={enableDemo} 
+                      onCheckedChange={setEnableDemo} 
+                    />
+                  </div>
+
+                  {enableDemo && (
+                    <div className="grid gap-2 p-4 border rounded-xl bg-primary/5 animate-in fade-in slide-in-from-top-2">
+                      <Label htmlFor="demoFeet">Footage of Demo (FT)</Label>
+                      <div className="flex items-center gap-4">
+                        <Input 
+                          id="demoFeet"
+                          type="number" 
+                          className="max-w-[120px]"
+                          value={isNaN(demoFeet) ? "" : demoFeet} 
+                          onChange={(e) => setDemoFeet(parseFloat(e.target.value) || 0)} 
+                        />
+                        <span className="text-sm font-bold text-muted-foreground">Linear Feet to be removed</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card className="border-2 shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

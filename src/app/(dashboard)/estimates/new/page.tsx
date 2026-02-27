@@ -442,6 +442,12 @@ function NewEstimateContent() {
                       <div className="space-y-1">
                         <h4 className="font-bold">Segment Length</h4>
                         <p className="text-xs text-muted-foreground">How many feet for this segment?</p>
+                        <div className="pt-2">
+                          <MapMeasurementTool 
+                            address={jobAddress}
+                            onApply={(feet) => updateSection(sec.id, { feet })} 
+                          />
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Input 

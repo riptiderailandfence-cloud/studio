@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -571,7 +570,91 @@ function NewEstimateContent() {
 
           {step === 5 && (
             <div className="space-y-6">
-              {/* Client Quote Preview */}
+              <Card className="border-2 shadow-sm">
+                <CardHeader>
+                  <CardTitle>Pricing Strategy</CardTitle>
+                </CardHeader>
+                <CardContent className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Overhead %</Label>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          value={isNaN(overheadPct) ? "" : (overheadPct * 100).toFixed(1)} 
+                          onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100 || 0)} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Profit %</Label>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          value={isNaN(profitPct) ? "" : (profitPct * 100).toFixed(1)} 
+                          onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} 
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20">
+                    <PricingRecommendation 
+                      onApply={handleApplyAI} 
+                      estimateData={{
+                        materialCosts: totals.materialsTotal,
+                        laborCosts: totals.laborCost,
+                        styleIds: sections.map(s => s.fenceStyleId).filter(Boolean)
+                      }} 
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" /> Crew Installation Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea 
+                    placeholder="Technical or logistical instructions for the production crew."
+                    value={crewNotes}
+                    onChange={(e) => setCrewNotes(e.target.value)}
+                    className="min-h-[120px]"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 bg-slate-900 text-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    Internal Cost Breakdown
+                    <Badge variant="outline" className="text-slate-400 border-slate-700 uppercase">
+                      {pricingMethod}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between w-full text-sm">
+                    <span className="text-slate-400">Materials Total</span>
+                    <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between w-full text-sm">
+                    <span className="text-slate-400">Labor Total</span>
+                    <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
+                  </div>
+                  <Separator className="bg-slate-800" />
+                  <div className="flex justify-between w-full text-lg font-black text-primary">
+                    <span>FINAL QUOTE</span>
+                    <span className="font-mono">${totals.finalTotal.toFixed(2)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Separator />
+
+              {/* Client Quote Preview at the bottom */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Eye className="h-5 w-5 text-primary" />
@@ -678,90 +761,6 @@ function NewEstimateContent() {
                   </CardContent>
                 </Card>
               </div>
-
-              <Separator />
-
-              <Card className="border-2 shadow-sm">
-                <CardHeader>
-                  <CardTitle>Pricing Strategy</CardTitle>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Overhead %</Label>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          value={isNaN(overheadPct) ? "" : (overheadPct * 100).toFixed(1)} 
-                          onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100 || 0)} 
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Profit %</Label>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          value={isNaN(profitPct) ? "" : (profitPct * 100).toFixed(1)} 
-                          onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} 
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20">
-                    <PricingRecommendation 
-                      onApply={handleApplyAI} 
-                      estimateData={{
-                        materialCosts: totals.materialsTotal,
-                        laborCosts: totals.laborCost,
-                        styleIds: sections.map(s => s.fenceStyleId).filter(Boolean)
-                      }} 
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5 text-primary" /> Crew Installation Notes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea 
-                    placeholder="Technical or logistical instructions for the production crew."
-                    value={crewNotes}
-                    onChange={(e) => setCrewNotes(e.target.value)}
-                    className="min-h-[120px]"
-                  />
-                </CardContent>
-              </Card>
-
-              <Card className="border-2 bg-slate-900 text-white">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    Internal Cost Breakdown
-                    <Badge variant="outline" className="text-slate-400 border-slate-700 uppercase">
-                      {pricingMethod}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between w-full text-sm">
-                    <span className="text-slate-400">Materials Total</span>
-                    <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between w-full text-sm">
-                    <span className="text-slate-400">Labor Total</span>
-                    <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
-                  </div>
-                  <Separator className="bg-slate-800" />
-                  <div className="flex justify-between w-full text-lg font-black text-primary">
-                    <span>FINAL QUOTE</span>
-                    <span className="font-mono">${totals.finalTotal.toFixed(2)}</span>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
         </div>

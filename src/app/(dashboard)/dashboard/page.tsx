@@ -22,6 +22,7 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
+import Link from "next/link";
 
 const activityData = [
   { name: 'Mon', value: 12 },
@@ -140,12 +141,16 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-4">
               {[
-                { name: "Privacy Fence - 120ft", customer: "John Doe", date: "Tomorrow", color: "bg-blue-100 text-blue-700" },
-                { name: "Chain Link Repair", customer: "Jane Smith", date: "Thursday", color: "bg-amber-100 text-amber-700" },
-                { name: "Post & Rail Installation", customer: "Bob Builder", date: "Friday", color: "bg-green-100 text-green-700" },
-                { name: "Vinyl Install - 80ft", customer: "Alice Cooper", date: "Next Mon", color: "bg-purple-100 text-purple-700" },
+                { id: "est_1", name: "Privacy Fence - 120ft", customer: "John Doe", date: "Tomorrow", color: "bg-blue-100 text-blue-700" },
+                { id: "est_2", name: "Chain Link Repair", customer: "Jane Smith", date: "Thursday", color: "bg-amber-100 text-amber-700" },
+                { id: "est_3", name: "Post & Rail Installation", customer: "Bob Builder", date: "Friday", color: "bg-green-100 text-green-700" },
+                { id: "est_4", name: "Vinyl Install - 80ft", customer: "Alice Cooper", date: "Next Mon", color: "bg-purple-100 text-purple-700" },
               ].map((job, i) => (
-                <div key={i} className="flex items-center justify-between rounded-xl border p-4 hover:bg-secondary/20 transition-colors group">
+                <Link 
+                  key={i} 
+                  href={`/jobs/${job.id}`}
+                  className="flex items-center justify-between rounded-xl border p-4 hover:bg-secondary/20 transition-colors group"
+                >
                   <div className="space-y-1">
                     <p className="font-bold text-sm group-hover:text-primary transition-colors">{job.name}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -153,7 +158,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${job.color}`}>{job.date}</span>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>

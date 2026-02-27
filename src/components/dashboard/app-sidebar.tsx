@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Briefcase,
   TrendingUp,
-  Smartphone
+  Smartphone,
+  MessageSquare
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,7 @@ import { usePathname } from "next/navigation";
 const navigationItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "CRM (Customers)", url: "/crm", icon: Users },
+  { title: "Messages", url: "/messages", icon: MessageSquare, badge: "2" },
   { title: "Schedule", url: "/schedule", icon: CalendarDays },
   { title: "Jobs (Job Packs)", url: "/jobs", icon: Briefcase },
   { title: "Job Costing", url: "/job-costing", icon: TrendingUp },
@@ -140,9 +142,16 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={pathname === item.url} tooltip={item.title}>
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
+                      <Link href={item.url} className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground group-data-[collapsible=icon]:hidden">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

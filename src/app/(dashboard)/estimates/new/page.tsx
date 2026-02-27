@@ -209,9 +209,6 @@ function NewEstimateContent() {
     const gateManHours = gates.reduce((acc, g) => acc + ((isNaN(g.qty) ? 0 : g.qty) * gateLaborRate), 0);
     calculatedManHours += gateManHours;
 
-    const demoManHours = enableDemo ? ((isNaN(demoFeet) ? 0 : demoFeet) * demoRate) : 0;
-    calculatedManHours += demoManHours;
-
     const finalManHours = manualLaborHours !== null && !isNaN(manualLaborHours) ? manualLaborHours : calculatedManHours;
     const laborCost = finalManHours * laborRatePerMember;
 
@@ -251,8 +248,6 @@ function NewEstimateContent() {
   }, [
     sections, 
     gates, 
-    enableDemo, 
-    demoFeet, 
     profitPct, 
     overheadPct,
     laborRatePerMember, 
@@ -516,22 +511,6 @@ function NewEstimateContent() {
                   )}
                 </CardContent>
               </Card>
-
-              <Card className="border-2 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5 text-primary" /> Crew Installation Notes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea 
-                    placeholder="Technical or logistical instructions for the production crew."
-                    value={crewNotes}
-                    onChange={(e) => setCrewNotes(e.target.value)}
-                    className="min-h-[120px]"
-                  />
-                </CardContent>
-              </Card>
             </div>
           )}
 
@@ -627,6 +606,22 @@ function NewEstimateContent() {
                       }} 
                     />
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-2 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" /> Crew Installation Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea 
+                    placeholder="Technical or logistical instructions for the production crew."
+                    value={crewNotes}
+                    onChange={(e) => setCrewNotes(e.target.value)}
+                    className="min-h-[120px]"
+                  />
                 </CardContent>
               </Card>
 

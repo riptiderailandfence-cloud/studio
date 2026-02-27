@@ -10,7 +10,11 @@ import {
   CreditCard, 
   MapPin, 
   Calendar,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  ShieldCheck,
+  Download,
+  Printer
 } from "lucide-react";
 import { SAMPLE_STYLES } from "@/lib/mock-data";
 
@@ -18,128 +22,219 @@ export default function ClientPortalPage({ params }: { params: Promise<{ token: 
   const { token } = use(params);
   const [paid, setPaid] = useState(false);
 
-  // Mock estimate derived from token
+  // Mock estimate data for the "Example Quote"
   const estimate = {
     id: "EST-9921",
     customer: "John Doe",
-    address: "123 Oak Lane, Springfield",
-    date: "Oct 27, 2023",
+    address: "123 Oak Lane, Springfield, OR 97477",
+    date: "October 27, 2023",
+    expiryDate: "November 27, 2023",
     status: paid ? "deposit_paid" : "sent",
     lineItems: [
-      { id: "1", styleId: "style_1", qty: 120, price: 4200.50 }
+      { 
+        id: "1", 
+        styleId: "style_1", 
+        name: "6ft Privacy Cedar", 
+        qty: 120, 
+        price: 4200.50,
+        details: "Premium Western Red Cedar, 3-rail construction, 4x4 treated posts set in 80lb concrete."
+      }
     ],
+    subtotal: 4200.50,
+    tax: 336.04,
     total: 4536.54,
     deposit: 2268.27
   };
 
   const handlePayment = () => {
-    // Simulate Magic Payment
+    // Simulate Magic Payment Process
     setPaid(true);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-white font-black text-xl mb-4">P</div>
-          <h1 className="text-2xl font-bold">PillarPath Estimate</h1>
-          <p className="text-muted-foreground">Evergreen Fencing Co. has prepared a quote for your project.</p>
+    <div className="min-h-screen bg-slate-50 py-12 px-4 print:bg-white print:py-0">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header Actions */}
+        <div className="flex justify-between items-center print:hidden">
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">P</div>
+            <span className="font-bold text-lg tracking-tight text-primary">PillarPath Portal</span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => window.print()}>
+              <Printer className="h-4 w-4" /> Print PDF
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Download className="h-4 w-4" /> Download
+            </Button>
+          </div>
         </div>
 
-        <Card className="border-2 shadow-xl overflow-hidden">
-          <CardHeader className="bg-primary text-primary-foreground p-8">
-            <div className="flex justify-between items-start">
+        <Card className="border-2 shadow-2xl overflow-hidden print:shadow-none print:border-none">
+          <CardHeader className="bg-slate-900 text-white p-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <p className="text-sm opacity-80 uppercase tracking-widest font-bold">Estimate ID</p>
-                <h2 className="text-3xl font-black">{estimate.id}</h2>
+                <p className="text-xs opacity-70 uppercase tracking-widest font-black mb-1">Project Estimate</p>
+                <h2 className="text-4xl font-black font-mono">{estimate.id}</h2>
               </div>
-              <Badge variant={paid ? "default" : "secondary"} className="text-md px-4 py-1">
-                {estimate.status.replace('_', ' ').toUpperCase()}
-              </Badge>
+              <div className="text-right">
+                <Badge variant={paid ? "default" : "secondary"} className={`text-sm px-4 py-1 font-bold ${paid ? 'bg-green-500 hover:bg-green-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                  {paid ? "DEPOSIT PAID" : "PENDING ACCEPTANCE"}
+                </Badge>
+                <p className="text-xs opacity-60 mt-2 font-medium">Valid until {estimate.expiryDate}</p>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="p-8 space-y-8">
-            <div className="grid md:grid-cols-2 gap-8">
+          
+          <CardContent className="p-8 space-y-10">
+            {/* Contact Information */}
+            <div className="grid md:grid-cols-2 gap-12">
               <div className="space-y-4">
-                <h3 className="font-bold flex items-center gap-2"><MapPin className="h-4 w-4" /> Job Location</h3>
-                <p className="text-muted-foreground">{estimate.address}</p>
+                <h3 className="font-bold text-sm uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <MapPin className="h-4 w-4" /> Client & Location
+                </h3>
+                <div className="space-y-1">
+                  <p className="text-xl font-black text-slate-900">{estimate.customer}</p>
+                  <p className="text-slate-600 leading-relaxed">{estimate.address}</p>
+                </div>
               </div>
               <div className="space-y-4">
-                <h3 className="font-bold flex items-center gap-2"><Calendar className="h-4 w-4" /> Quote Date</h3>
-                <p className="text-muted-foreground">{estimate.date}</p>
+                <h3 className="font-bold text-sm uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" /> Estimate Details
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Issued On</span>
+                    <span className="font-bold">{estimate.date}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Prepared By</span>
+                    <span className="font-bold text-primary">Evergreen Fencing Co.</span>
+                  </div>
+                </div>
               </div>
             </div>
 
             <Separator />
 
-            <div className="space-y-4">
-              <h3 className="font-bold text-lg">Project Scope</h3>
+            {/* Scope of Work */}
+            <div className="space-y-6">
+              <h3 className="font-bold text-xl flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" /> Scope of Work
+              </h3>
               <div className="space-y-4">
-                {estimate.lineItems.map(item => {
-                  const style = SAMPLE_STYLES.find(s => s.id === item.styleId);
-                  return (
-                    <div key={item.id} className="flex justify-between items-center bg-secondary/30 p-4 rounded-lg">
-                      <div>
-                        <p className="font-bold text-lg">{style?.name}</p>
-                        <p className="text-sm text-muted-foreground">{item.qty} Linear Feet • {style?.description}</p>
+                {estimate.lineItems.map(item => (
+                  <div key={item.id} className="group border-2 border-slate-100 rounded-2xl p-6 bg-white hover:border-primary/20 transition-colors">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <h4 className="text-2xl font-black text-slate-900">{item.name}</h4>
+                          <Badge variant="outline" className="font-bold">{item.qty} FT</Badge>
+                        </div>
+                        <p className="text-slate-500 leading-relaxed max-w-xl">
+                          {item.details}
+                        </p>
                       </div>
-                      <p className="font-mono font-bold">${item.price.toFixed(2)}</p>
+                      <div className="text-right shrink-0">
+                        <p className="text-3xl font-black text-slate-900 font-mono">${item.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase mt-1">Item Subtotal</p>
+                      </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
 
             <Separator />
 
-            <div className="space-y-2 max-w-xs ml-auto">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="font-mono">$4,200.50</span>
+            {/* Financial Summary */}
+            <div className="flex flex-col md:flex-row justify-between items-start gap-8">
+              <div className="flex-1 max-w-md space-y-4">
+                <h4 className="font-bold text-sm uppercase tracking-wider text-slate-400">Notes & Exclusions</h4>
+                <ul className="text-xs text-slate-500 space-y-2 list-disc pl-4">
+                  <li>Client responsible for underground utilities identification.</li>
+                  <li>Final linear footage may vary slightly upon installation.</li>
+                  <li>Includes removal and disposal of existing debris from installation.</li>
+                </ul>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Tax</span>
-                <span className="font-mono">$336.04</span>
+              
+              <div className="w-full md:w-80 space-y-3">
+                <div className="flex justify-between text-sm text-slate-500">
+                  <span>Subtotal</span>
+                  <span className="font-mono font-bold">${estimate.subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-slate-500">
+                  <span>Estimated Tax (8%)</span>
+                  <span className="font-mono font-bold">${estimate.tax.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center text-3xl font-black text-slate-900 pt-4 border-t-2 border-slate-900 mt-2">
+                  <span>TOTAL</span>
+                  <span className="font-mono">${estimate.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
               </div>
-              <div className="flex justify-between text-2xl font-black pt-4 border-t">
-                <span>TOTAL</span>
-                <span className="font-mono">${estimate.total.toFixed(2)}</span>
+            </div>
+
+            <Separator />
+
+            {/* Terms & Legal */}
+            <div className="bg-slate-50 rounded-2xl p-6 space-y-4 border border-slate-200">
+              <h4 className="font-bold text-sm uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" /> Terms of Service
+              </h4>
+              <div className="text-[10px] text-slate-400 leading-relaxed space-y-2 uppercase">
+                <p>1. ACCEPTANCE: This estimate is an offer to perform work at the prices stated for a period of 30 days. Acceptance is confirmed upon payment of the security deposit.</p>
+                <p>2. PAYMENT: A 50% deposit is required to secure a production date. Final balance is due upon completion of the installation. Late fees apply after 15 days.</p>
+                <p>3. PERMITS: Contractor will assist with permit applications, but final approval from HOA or local municipalities is the client's responsibility unless otherwise specified.</p>
               </div>
             </div>
           </CardContent>
 
+          {/* Call to Action Footer */}
           {!paid ? (
-            <CardFooter className="bg-secondary/50 p-8 flex flex-col gap-6">
-              <div className="flex items-center gap-4 p-4 bg-white border rounded-xl w-full">
-                <div className="h-10 w-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
-                  <CreditCard className="h-5 w-5" />
+            <CardFooter className="bg-slate-100 p-8 flex flex-col gap-6 print:hidden">
+              <div className="flex items-center gap-6 p-6 bg-white border-2 border-primary/20 rounded-2xl w-full shadow-sm">
+                <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <CreditCard className="h-8 w-8" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-bold">50% Deposit Required</p>
-                  <p className="text-xs text-muted-foreground">To schedule your project, a security deposit is needed.</p>
+                  <p className="text-lg font-black text-slate-900">50% Security Deposit Required</p>
+                  <p className="text-sm text-slate-500 font-medium">Accept this quote and pay your deposit online to lock in your installation date.</p>
                 </div>
-                <p className="text-xl font-black text-primary font-mono">${estimate.deposit.toFixed(2)}</p>
+                <div className="text-right">
+                  <p className="text-3xl font-black text-primary font-mono">${estimate.deposit.toFixed(2)}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Deposit Amount</p>
+                </div>
               </div>
-              <Button onClick={handlePayment} className="w-full h-14 text-lg gap-2 shadow-lg shadow-accent/20 bg-accent hover:bg-accent/90">
-                <CheckCircle2 className="h-5 w-5" />
-                Accept & Pay Deposit via Magic
+              <Button onClick={handlePayment} className="w-full h-16 text-xl font-black gap-3 shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 transition-all active:scale-[0.98]">
+                <CheckCircle2 className="h-6 w-6" />
+                ACCEPT & PAY DEPOSIT VIA MAGIC
               </Button>
             </CardFooter>
           ) : (
-            <CardFooter className="bg-green-50 p-8 flex flex-col items-center gap-4 text-center">
-              <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2">
-                <CheckCircle2 className="h-10 w-10" />
+            <CardFooter className="bg-green-50 p-10 flex flex-col items-center gap-4 text-center print:hidden">
+              <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center text-green-600 mb-2 border-4 border-white shadow-xl">
+                <CheckCircle2 className="h-12 w-12" />
               </div>
-              <h3 className="text-2xl font-bold text-green-900">Deposit Paid!</h3>
-              <p className="text-green-800">We've received your deposit of ${estimate.deposit.toFixed(2)}. Our scheduling team will contact you shortly to set a date for your fence installation.</p>
-              <Button variant="outline" className="mt-4 border-green-200 text-green-700 hover:bg-green-100">Download Receipt</Button>
+              <h3 className="text-3xl font-black text-green-900">Project Secured!</h3>
+              <p className="text-green-800 text-lg max-w-lg font-medium">
+                We've received your deposit of <span className="font-black">${estimate.deposit.toFixed(2)}</span>. 
+                Our team has been notified and will contact you within 24 hours to finalize your installation schedule.
+              </p>
+              <div className="flex gap-4 mt-6">
+                <Button variant="outline" className="border-green-200 text-green-700 hover:bg-green-100 font-bold px-8">
+                  View Receipt
+                </Button>
+                <Button variant="outline" className="border-green-200 text-green-700 hover:bg-green-100 font-bold px-8" onClick={() => window.print()}>
+                  Print Quote
+                </Button>
+              </div>
             </CardFooter>
           )}
         </Card>
 
-        <div className="flex items-center gap-2 justify-center text-muted-foreground text-sm">
+        <div className="flex items-center gap-2 justify-center text-slate-400 text-xs font-bold uppercase tracking-widest pb-12 print:hidden">
           <AlertCircle className="h-4 w-4" />
-          <span>Secure transaction powered by Magic Checkout</span>
+          <span>Secure Transaction Powered by Magic Checkout</span>
         </div>
       </div>
     </div>

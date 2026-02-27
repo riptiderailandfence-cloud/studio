@@ -152,7 +152,7 @@ Use the provided historical estimate data and the details of the current estimat
 - Material Costs: {{{currentEstimateDetails.materialCosts}}}
 - Labor Costs: {{{currentEstimateDetails.laborCosts}}}
 - Estimated Total Cost (Material + Labor): {{{currentEstimateDetails.estimatedTotalCost}}}
-- Style IDs: {{{currentEstimateDetails.styleIds.join(', ')}}}
+- Style IDs: {{#each currentEstimateDetails.styleIds}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
 {{#if currentEstimateDetails.customerSegment}}- Customer Segment: {{{currentEstimateDetails.customerSegment}}}{{/if}}
 {{#if currentEstimateDetails.jobLocationArea}}- Job Location Area: {{{currentEstimateDetails.jobLocationArea}}}{{/if}}
 {{#if currentEstimateDetails.currentPricingMethod}}- User is currently considering: {{{currentEstimateDetails.currentPricingMethod}}}{{/if}}

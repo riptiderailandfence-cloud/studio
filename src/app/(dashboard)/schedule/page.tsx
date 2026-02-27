@@ -42,7 +42,7 @@ import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 export default function SchedulePage() {
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [date, setDate] = useState<Date | undefined>(undefined);
   const [events, setEvents] = useState<ScheduleEvent[]>(SAMPLE_EVENTS);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -50,6 +50,7 @@ export default function SchedulePage() {
 
   useEffect(() => {
     setMounted(true);
+    setDate(new Date());
   }, []);
 
   // New Event Form State
@@ -59,7 +60,7 @@ export default function SchedulePage() {
   });
 
   const selectedDateEvents = useMemo(() => {
-    if (!date) return [];
+    if (!date || !mounted) return [];
     return events.filter(e => {
       const eventDate = new Date(e.date);
       return (
@@ -68,7 +69,7 @@ export default function SchedulePage() {
         eventDate.getFullYear() === date.getFullYear()
       );
     });
-  }, [date, events]);
+  }, [date, events, mounted]);
 
   const handleConnectGoogle = () => {
     const toastId = toast({

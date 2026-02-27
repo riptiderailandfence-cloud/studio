@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { 
   Card, 
@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { SAMPLE_CREW, SAMPLE_EVENTS } from "@/lib/mock-data";
 import { format } from "date-fns";
 
-export default function CrewPortalPage() {
+function CrewPortalContent() {
   const searchParams = useSearchParams();
   const memberId = searchParams.get('member');
   const [mounted, setMounted] = useState(false);
@@ -190,5 +190,13 @@ export default function CrewPortalPage() {
         </button>
       </nav>
     </div>
+  );
+}
+
+export default function CrewPortalPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading portal...</div>}>
+      <CrewPortalContent />
+    </Suspense>
   );
 }

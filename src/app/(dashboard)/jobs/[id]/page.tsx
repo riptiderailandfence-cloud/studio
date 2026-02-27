@@ -26,7 +26,8 @@ import {
   FileText,
   DollarSign,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Pencil
 } from "lucide-react";
 import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +60,7 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
     setMounted(true);
   }, []);
 
-  // Mock Job Data - In a real app this would fetch the Estimate with 'notes'
+  // Mock Job Data
   const jobData = useMemo(() => {
     return {
       id: id,
@@ -72,7 +73,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
       gates: [
         { id: 'g1', name: 'Cedar Walk Gate', qty: 1 }
       ],
-      // This is where the notes from the estimate are displayed
       notes: "Digging may be tough on back fence line. Client requested caps on all posts. Watch for buried sprinkler line on East side.",
       estMaterials: 2200,
       estLabor: 1500
@@ -135,14 +135,17 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
       <div className="flex items-center justify-between print:hidden">
         <Button variant="ghost" onClick={() => router.back()} className="gap-2">
-          <ChevronLeft className="h-4 w-4" /> Back to Jobs
+          <ChevronLeft className="h-4 w-4" /> Back
         </Button>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push(`/estimates/new?edit=${id}`)} className="gap-2">
+            <Pencil className="h-4 w-4" /> Edit Estimate
+          </Button>
           <Button variant="outline" onClick={() => window.print()} className="gap-2">
-            <Printer className="h-4 w-4" /> Print Job Pack
+            <Printer className="h-4 w-4" /> Print
           </Button>
           <Button className="gap-2" onClick={() => setIsCompleteDialogOpen(true)}>
-            <CheckCircle2 className="h-4 w-4" /> Mark as Completed
+            <CheckCircle2 className="h-4 w-4" /> Complete Job
           </Button>
         </div>
       </div>
@@ -154,7 +157,7 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
               <div className="flex justify-between items-start">
                 <div>
                   <div className="flex items-center gap-2 text-xs uppercase font-bold tracking-widest opacity-80 mb-1">
-                    <Briefcase className="h-3 w-3" /> Production Job Pack
+                    <Briefcase className="h-3 w-3" /> Job Pack
                   </div>
                   <CardTitle className="text-3xl font-black">{jobData.id}</CardTitle>
                 </div>
@@ -162,7 +165,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
               </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
-              {/* High Visibility Crew Notes */}
               {jobData.notes && (
                 <div className="bg-amber-50 border-2 border-amber-200 p-6 rounded-2xl shadow-sm">
                   <h4 className="text-amber-900 font-black text-xs uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
@@ -181,21 +183,15 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
                   </h3>
                   <div className="bg-secondary/30 p-4 rounded-xl">
                     <p className="font-bold text-lg">{jobData.address}</p>
-                    <p className="text-sm text-muted-foreground mt-1 italic">Click for navigation map</p>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <h3 className="font-bold flex items-center gap-2 text-primary">
-                    <User className="h-4 w-4" /> Customer Contact
+                    <User className="h-4 w-4" /> Customer
                   </h3>
                   <div className="space-y-2 text-sm">
                     <p className="font-bold text-lg">{jobData.customer.name}</p>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="h-3 w-3" /> {jobData.customer.phone}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-3 w-3" /> {jobData.customer.email}
-                    </div>
+                    <p className="text-muted-foreground">{jobData.customer.phone}</p>
                   </div>
                 </div>
               </div>
@@ -208,14 +204,13 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
                 </h3>
                 <div className="grid gap-3">
                   {jobData.segments.map(seg => (
-                    <div key={seg.id} className="flex justify-between items-center p-4 border rounded-xl bg-card group hover:bg-secondary/20 transition-colors">
+                    <div key={seg.id} className="flex justify-between items-center p-4 border rounded-xl bg-card">
                       <div>
                         <p className="font-bold">{seg.name}</p>
-                        <p className="text-xs text-muted-foreground">Detailed layout attached to blueprints</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-black font-mono">{seg.feet}</p>
-                        <p className="text-[10px] font-bold uppercase text-muted-foreground">Linear Feet</p>
+                        <p className="text-[10px] font-bold uppercase text-muted-foreground">FT</p>
                       </div>
                     </div>
                   ))}
@@ -229,23 +224,18 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5 text-primary" /> Material Pull List
               </CardTitle>
-              <CardDescription className="text-slate-400">Consolidated inventory needed for this job (includes waste).</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader className="bg-slate-100">
                   <TableRow>
-                    <TableHead className="font-bold">Category</TableHead>
-                    <TableHead className="font-bold">Item Name</TableHead>
-                    <TableHead className="text-right font-bold">Qty Needed</TableHead>
+                    <TableHead className="font-bold">Item</TableHead>
+                    <TableHead className="text-right font-bold">Qty</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {materialPullList.map((mat, i) => (
-                    <TableRow key={i} className="hover:bg-primary/5">
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">{mat.category}</Badge>
-                      </TableCell>
+                    <TableRow key={i}>
                       <TableCell className="font-medium">{mat.name}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-lg">
                         {Math.ceil(mat.qty)} <span className="text-xs text-muted-foreground uppercase">{mat.unit}</span>
@@ -255,9 +245,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
                 </TableBody>
               </Table>
             </CardContent>
-            <CardFooter className="bg-slate-50 p-4 border-t justify-center italic text-xs text-muted-foreground">
-              Verify inventory counts before leaving the shop.
-            </CardFooter>
           </Card>
         </div>
 
@@ -275,86 +262,43 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
                 </div>
                 <div>
                   <p className="font-bold">Mike Foreman</p>
-                  <p className="text-xs text-muted-foreground">Project Lead</p>
+                  <p className="text-xs text-muted-foreground">Lead</p>
                 </div>
-              </div>
-              <div className="flex items-center gap-4 p-3 rounded-lg border bg-secondary/10">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <HardHat className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="font-bold">Steve Laborer</p>
-                  <p className="text-xs text-muted-foreground">Installer</p>
-                </div>
-              </div>
-              <Button variant="outline" className="w-full">Change Assignment</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary">
-                Logistics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-muted-foreground uppercase">Expected Duration</p>
-                <p className="text-xl font-bold">2.5 Days</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-muted-foreground uppercase">Underground Utilities</p>
-                <Badge className="bg-green-600">CLEARED</Badge>
-              </div>
-              <Separator />
-              <div className="text-xs text-muted-foreground">
-                Ensure all gate hardware is checked twice before departure.
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Completion Dialog */}
       <Dialog open={isCompleteDialogOpen} onOpenChange={setIsCompleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Complete Job & Record Costs</DialogTitle>
-            <DialogDescription>
-              Record the actual expenditures to finalize job costing for {id}.
-            </DialogDescription>
+            <DialogTitle>Complete Job</DialogTitle>
           </DialogHeader>
           <div className="grid gap-6 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="materials" className="flex items-center gap-2">
-                <Package className="h-4 w-4" /> Final Material Cost ($)
-              </Label>
+              <Label htmlFor="materials">Final Material Cost ($)</Label>
               <Input 
                 id="materials" 
                 type="number" 
                 value={actualMaterials} 
                 onChange={(e) => setActualMaterials(parseFloat(e.target.value) || 0)} 
               />
-              <p className="text-[10px] text-muted-foreground italic">Budgeted: ${jobData.estMaterials.toFixed(2)}</p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="labor" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" /> Final Labor Cost ($)
-              </Label>
+              <Label htmlFor="labor">Final Labor Cost ($)</Label>
               <Input 
                 id="labor" 
                 type="number" 
                 value={actualLabor} 
                 onChange={(e) => setActualLabor(parseFloat(e.target.value) || 0)} 
               />
-              <p className="text-[10px] text-muted-foreground italic">Budgeted: ${jobData.estLabor.toFixed(2)}</p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCompleteDialogOpen(false)}>Back</Button>
-            <Button onClick={handleCompleteJob} disabled={isSaving} className="gap-2">
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Finalize & Close Job
+            <Button variant="outline" onClick={() => setIsCompleteDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCompleteJob} disabled={isSaving}>
+              {isSaving ? "Finalizing..." : "Complete & Archive"}
             </Button>
           </DialogFooter>
         </DialogContent>

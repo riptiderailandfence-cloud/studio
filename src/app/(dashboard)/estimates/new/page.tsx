@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -30,7 +29,8 @@ import {
   Clock,
   Zap,
   Loader2,
-  MessageSquare
+  MessageSquare,
+  Pencil
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -56,6 +56,8 @@ interface GateEntry {
 function NewEstimateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+  
   const [step, setStep] = useState(1);
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -74,11 +76,11 @@ function NewEstimateContent() {
   const [demoFeet, setDemoFeet] = useState<number>(0);
   const [gates, setGates] = useState<GateEntry[]>([]);
   
-  // Pricing & Breakdown State (Defaults matching Settings)
+  // Pricing & Breakdown State
   const [overheadPct, setOverheadPct] = useState<number>(0.10); 
   const [profitPct, setProfitPct] = useState<number>(0.30); 
   
-  // Labor Configuration (Synced from Settings logic)
+  // Labor Configuration
   const [crewSize, setCrewSize] = useState<number>(2);
   const [laborRatePerMember, setLaborRatePerMember] = useState<number>(35); 
   const [dailyProductionFt, setDailyProductionFt] = useState<number>(100);
@@ -98,14 +100,29 @@ function NewEstimateContent() {
       setSelectedCustomerId(customerIdFromQuery);
     }
 
-    // Reference the "Settings" hourly crew rate (simulated by averaging sample crew)
+    // Load mock data if editing
+    if (editId) {
+      // Simulate loading estimate data
+      setSelectedCustomerId('cust_1');
+      setJobAddress('123 Oak Lane, Springfield');
+      setCrewNotes('Watch for buried sprinkler line on East side.');
+      setSections([
+        { id: '1', fenceStyleId: 'style_1', postStyleId: 'mat_3', feet: 120 }
+      ]);
+      setGates([
+        { id: 'g1', styleId: 'mat_1', qty: 1, location: 'Side Entrance' }
+      ]);
+      setStep(5); // Start at review if editing
+    }
+
+    // Default settings
     const avg = SAMPLE_CREW.reduce((acc, m) => acc + m.hourlyRate, 0) / (SAMPLE_CREW.length || 1);
     setLaborRatePerMember(avg);
     setCrewSize(SAMPLE_CREW.length || 2);
     setBiddingMethod(SAMPLE_TENANT.settings.biddingMethod || 'footage');
     setPricingMethod(SAMPLE_TENANT.settings.pricingMethod || 'markup');
     setProfitPct(SAMPLE_TENANT.settings.pricingMethod === 'margin' ? SAMPLE_TENANT.settings.defaultMargin : SAMPLE_TENANT.settings.defaultMarkup);
-  }, [searchParams]);
+  }, [searchParams, editId]);
 
   const selectedCustomer = useMemo(() => SAMPLE_CUSTOMERS.find(c => c.id === selectedCustomerId), [selectedCustomerId]);
   const fenceStyles = useMemo(() => SAMPLE_STYLES.filter(s => s.type === 'fence'), []);
@@ -154,11 +171,9 @@ function NewEstimateContent() {
     const sOverhead = isNaN(overheadPct) ? 0 : overheadPct;
     const sProfit = isNaN(profitPct) ? 0 : profitPct;
 
-    // Derived Production Rate: How many man-hours does it take to install 1 foot?
     const manHoursPerFoot = (crewSize * 8) / (dailyProductionFt || 1);
-    
-    const gateLaborRate = 4; // 4 man hours per gate
-    const demoRate = 0.1; // 0.1 man hours per foot demo
+    const gateLaborRate = 4;
+    const demoRate = 0.1;
 
     sections.forEach(sec => {
       const fStyle = fenceStyles.find(s => s.id === sec.fenceStyleId);
@@ -251,46 +266,23 @@ function NewEstimateContent() {
   };
 
   const handleSaveEstimate = () => {
-    // Validation
-    if (!selectedCustomerId) {
+    if (!selectedCustomerId || !jobAddress) {
       toast({
-        title: "Missing Client",
-        description: "Please select a customer before saving.",
+        title: "Missing Information",
+        description: "Please provide client and address details.",
         variant: "destructive"
       });
       setStep(1);
-      return;
-    }
-
-    if (!jobAddress) {
-      toast({
-        title: "Missing Address",
-        description: "Please provide a job site address.",
-        variant: "destructive"
-      });
-      setStep(1);
-      return;
-    }
-
-    const invalidSection = sections.find(s => !s.fenceStyleId || !s.feet);
-    if (invalidSection) {
-      toast({
-        title: "Incomplete Section",
-        description: "Please specify a style and footage for all fence segments.",
-        variant: "destructive"
-      });
-      setStep(2);
       return;
     }
 
     setIsSaving(true);
 
-    // Mock save operation
     setTimeout(() => {
       setIsSaving(false);
       toast({
-        title: "Estimate Created!",
-        description: `Successfully sent to ${selectedCustomer?.email}`,
+        title: editId ? "Estimate Updated" : "Estimate Created",
+        description: `Successfully ${editId ? 'saved changes to' : 'sent to'} ${selectedCustomer?.name}`,
       });
       router.push("/estimates");
     }, 1500);
@@ -300,10 +292,11 @@ function NewEstimateContent() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
-      {/* Stepper Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-3xl font-black tracking-tight text-slate-900">New Estimate</h2>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">
+            {editId ? `Edit Estimate ${editId}` : "New Estimate"}
+          </h2>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5].map((i) => (
               <div 
@@ -335,10 +328,10 @@ function NewEstimateContent() {
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
+                  Saving...
                 </>
               ) : (
-                "Save & Send Quote"
+                editId ? "Update Estimate" : "Save & Send Quote"
               )}
             </Button>
           )}
@@ -348,7 +341,6 @@ function NewEstimateContent() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Step 1: Client Info */}
           {step === 1 && (
             <Card className="border-2 shadow-sm">
               <CardHeader>
@@ -372,14 +364,6 @@ function NewEstimateContent() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center gap-2 py-2">
-                    <div className="h-px bg-border flex-1" />
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Or</span>
-                    <div className="h-px bg-border flex-1" />
-                  </div>
-                  <Button variant="outline" className="w-full h-12 border-2 border-dashed">
-                    <Plus className="h-4 w-4 mr-2" /> Create New Customer Record
-                  </Button>
                 </div>
                 
                 <Separator />
@@ -397,13 +381,12 @@ function NewEstimateContent() {
             </Card>
           )}
 
-          {/* Step 2: Project Sections */}
           {step === 2 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold">Project Sections</h3>
-                  <p className="text-sm text-muted-foreground">Break your project down into segments with different styles and lengths.</p>
+                  <p className="text-sm text-muted-foreground">Define fence segments for this estimate.</p>
                 </div>
                 <Button onClick={addSection} variant="outline" size="sm" className="gap-2">
                   <Plus className="h-4 w-4" /> Add Segment
@@ -457,14 +440,8 @@ function NewEstimateContent() {
                     
                     <div className="bg-secondary/30 p-4 rounded-xl flex items-center justify-between gap-6">
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-bold">Segment Length</h4>
-                          <MapMeasurementTool 
-                            address={jobAddress} 
-                            onApply={(feet) => updateSection(sec.id, { feet })} 
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground">How many feet for this specific segment?</p>
+                        <h4 className="font-bold">Segment Length</h4>
+                        <p className="text-xs text-muted-foreground">How many feet for this segment?</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <Input 
@@ -482,98 +459,37 @@ function NewEstimateContent() {
             </div>
           )}
 
-          {/* Step 3: Scope & Demo */}
           {step === 3 && (
             <div className="space-y-6">
               <Card className="border-2 shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Settings2 className="h-5 w-5 text-primary" /> Additional Settings
-                  </CardTitle>
-                  <CardDescription>Demolition and site preparation details.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-8">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-1">
-                        <h4 className="font-bold">Demolition / Removal</h4>
-                        <p className="text-sm text-muted-foreground">Remove existing old fencing from site.</p>
-                      </div>
-                      <Switch checked={enableDemo} onCheckedChange={setEnableDemo} />
-                    </div>
-                    
-                    {enableDemo && (
-                      <div className="p-6 border-2 border-dashed rounded-2xl animate-in slide-in-from-top-2">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <Label>How many feet to remove?</Label>
-                            <div className="mt-1">
-                              <MapMeasurementTool 
-                                address={jobAddress} 
-                                onApply={setDemoFeet} 
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Input 
-                              type="number" 
-                              className="w-24 h-10 text-lg font-bold text-center" 
-                              value={isNaN(demoFeet) ? "" : demoFeet}
-                              onChange={(e) => setDemoFeet(parseFloat(e.target.value) || 0)}
-                            />
-                            <span className="text-sm font-bold">FT</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-2 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
                     <MessageSquare className="h-5 w-5 text-primary" /> Crew Installation Notes
                   </CardTitle>
-                  <CardDescription>Provide technical or logistical instructions for the production crew.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <Label htmlFor="crewNotes">Notes for Job Pack</Label>
-                    <Textarea 
-                      id="crewNotes"
-                      placeholder="e.g. Digging may be tough on back fence line. Client requested caps on all posts. Buried utilities on east side."
-                      value={crewNotes}
-                      onChange={(e) => setCrewNotes(e.target.value)}
-                      className="min-h-[120px]"
-                    />
-                    <p className="text-[11px] text-muted-foreground italic">
-                      These notes are internal and will only appear in the Job Pack for the installers, not on the customer's portal.
-                    </p>
-                  </div>
+                  <Textarea 
+                    placeholder="Technical or logistical instructions for the production crew."
+                    value={crewNotes}
+                    onChange={(e) => setCrewNotes(e.target.value)}
+                    className="min-h-[120px]"
+                  />
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Step 4: Gates */}
           {step === 4 && (
             <Card className="border-2 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>Project Gates</CardTitle>
-                  <CardDescription>Add entry points to your fence project.</CardDescription>
                 </div>
                 <Button onClick={addGate} variant="outline" size="sm" className="gap-2">
                   <Plus className="h-4 w-4" /> Add Gate
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {gates.length === 0 && (
-                  <div className="text-center py-12 border-2 border-dashed rounded-2xl text-muted-foreground">
-                    No gates added yet.
-                  </div>
-                )}
                 {gates.map((g) => (
                   <div key={g.id} className="grid grid-cols-12 gap-4 items-end p-4 border rounded-2xl bg-secondary/10">
                     <div className="col-span-4 space-y-2">
@@ -598,19 +514,14 @@ function NewEstimateContent() {
                       />
                     </div>
                     <div className="col-span-2 space-y-2">
-                      <Label>Quantity</Label>
+                      <Label>Qty</Label>
                       <Input 
                         type="number" 
                         value={isNaN(g.qty) ? "" : g.qty} 
                         onChange={(e) => updateGate(g.id, { qty: parseInt(e.target.value) || 1 })} 
                       />
                     </div>
-                    <div className="col-span-1 text-right pb-3">
-                      <span className="font-mono font-bold text-sm">
-                        ${((gateStyles.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * (isNaN(g.qty) ? 0 : g.qty)).toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="col-span-1 pb-1">
+                    <div className="col-span-2 pb-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeGate(g.id)}>
                         <Trash className="h-4 w-4" />
                       </Button>
@@ -621,7 +532,6 @@ function NewEstimateContent() {
             </Card>
           )}
 
-          {/* Step 5: Final Review & Strategy */}
           {step === 5 && (
             <div className="space-y-6">
               <Card className="border-2 shadow-sm">
@@ -632,57 +542,22 @@ function NewEstimateContent() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><Briefcase className="h-3 w-3" /> Overhead %</Label>
+                        <Label>Overhead %</Label>
                         <Input 
                           type="number" 
                           step="0.01" 
                           value={isNaN(overheadPct) ? "" : (overheadPct * 100).toFixed(1)} 
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setOverheadPct(isNaN(val) ? 0 : val / 100);
-                          }} 
+                          onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100 || 0)} 
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Net Profit %</Label>
+                        <Label>Profit %</Label>
                         <Input 
                           type="number" 
                           step="0.01" 
                           value={isNaN(profitPct) ? "" : (profitPct * 100).toFixed(1)} 
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setProfitPct(isNaN(val) ? 0 : val / 100);
-                          }} 
+                          onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} 
                         />
-                      </div>
-                    </div>
-                    
-                    <Separator className="my-2" />
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Calculation Method</Label>
-                        <Select value={pricingMethod} onValueChange={(v: any) => setPricingMethod(v)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="margin">Margin %</SelectItem>
-                            <SelectItem value="markup">Markup %</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Bidding Method</Label>
-                        <Select value={biddingMethod} onValueChange={(v: any) => setBiddingMethod(v)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="footage">Footage</SelectItem>
-                            <SelectItem value="section">Sections</SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
                     </div>
                   </div>
@@ -699,117 +574,42 @@ function NewEstimateContent() {
                 </CardContent>
               </Card>
 
-              {/* Internal Full Breakdown */}
               <Card className="border-2 bg-slate-900 text-white">
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Calculator className="h-5 w-5" /> Internal Cost Breakdown
-                    </div>
-                    <Badge variant="outline" className="text-slate-400 border-slate-700">
-                      {pricingMethod.toUpperCase()} MODE
+                  <CardTitle className="flex items-center justify-between">
+                    Internal Cost Breakdown
+                    <Badge variant="outline" className="text-slate-400 border-slate-700 uppercase">
+                      {pricingMethod}
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Base Production Costs</h4>
-                      <div className="space-y-4">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Materials Total</span>
-                          <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm items-center">
-                            <span className="text-slate-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" /> Labor Duration
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <Input 
-                                type="number" 
-                                className="w-16 h-7 bg-slate-800 border-slate-700 text-right text-xs px-2 focus:ring-primary"
-                                value={isNaN(totals.finalManHours) ? "" : totals.finalManHours.toFixed(1)}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value);
-                                  setManualLaborHours(isNaN(val) ? 0 : val);
-                                }}
-                              />
-                              <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Hrs</span>
-                            </div>
-                          </div>
-                          
-                          <div className="bg-slate-800/50 p-2 rounded-md space-y-1">
-                            <div className="flex justify-between text-[10px] text-slate-500 italic">
-                              <span className="flex items-center gap-1"><Users className="h-2 w-2" /> Crew Size:</span>
-                              <span>{crewSize} members</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-slate-500 italic">
-                              <span className="flex items-center gap-1"><Zap className="h-2 w-2" /> Daily Production:</span>
-                              <span>{dailyProductionFt} ft/day</span>
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between text-[10px] text-slate-500 pl-4 italic">
-                            <span>Labor Rate:</span>
-                            <span>${totals.totalLaborRate.toFixed(2)}/hr</span>
-                          </div>
-                          <div className="flex justify-between text-xs font-mono text-slate-400 pl-4 border-l border-slate-800 ml-2">
-                            <span>Subtotal Labor:</span>
-                            <span>${totals.laborCost.toFixed(2)}</span>
-                          </div>
-                        </div>
-
-                        <Separator className="bg-slate-800" />
-                        <div className="flex justify-between font-bold text-slate-300">
-                          <span>Project Base Cost</span>
-                          <span className="font-mono">${totals.baseCost.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Business Strategy</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400 flex items-center gap-1">
-                            Net Profit ({(isNaN(profitPct) ? 0 : profitPct * 100).toFixed(0)}%)
-                          </span>
-                          <span className="font-mono text-green-400">+${totals.profitAmount.toFixed(2)}</span>
-                        </div>
-                        <Separator className="bg-slate-800" />
-                        <div className="flex justify-between font-bold text-primary">
-                          <span>Net Sell Price</span>
-                          <span className="font-mono">${totals.sellTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="flex justify-between w-full text-sm">
+                    <span className="text-slate-400">Materials Total</span>
+                    <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between w-full text-sm">
+                    <span className="text-slate-400">Labor Total</span>
+                    <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
+                  </div>
+                  <Separator className="bg-slate-800" />
+                  <div className="flex justify-between w-full text-lg font-black text-primary">
+                    <span>FINAL QUOTE</span>
+                    <span className="font-mono">${totals.finalTotal.toFixed(2)}</span>
                   </div>
                 </CardContent>
-                <CardFooter className="bg-slate-800/50 p-6 flex flex-col gap-2">
-                  <div className="flex justify-between w-full text-sm">
-                    <span className="text-slate-400">Taxes (8% Sales Tax)</span>
-                    <span className="font-mono">${totals.tax.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between w-full text-lg font-black pt-2 border-t border-slate-700">
-                    <span>FINAL CUSTOMER QUOTE</span>
-                    <span className="font-mono text-primary">${totals.finalTotal.toFixed(2)}</span>
-                  </div>
-                </CardFooter>
               </Card>
             </div>
           )}
         </div>
 
-        {/* Sidebar Summary & Preview */}
         <div className="space-y-6">
           <Card className="sticky top-8 border-2 shadow-lg overflow-hidden">
             <CardHeader className="bg-primary text-primary-foreground p-6">
               <CardTitle className="text-sm font-bold uppercase tracking-widest opacity-80">Estimate Summary</CardTitle>
               <div className="mt-2">
                 <p className="text-4xl font-black font-mono">${totals.finalTotal.toFixed(2)}</p>
-                <p className="text-xs opacity-70 mt-1">Total Quote including Tax (8%)</p>
+                <p className="text-xs opacity-70 mt-1">Total Quote including Tax</p>
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
@@ -819,31 +619,8 @@ function NewEstimateContent() {
                   <span className="font-bold">{selectedCustomer?.name || '---'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Segments</span>
-                  <span className="font-bold">{sections.length} Areas</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {biddingMethod === 'footage' ? 'Total Footage' : 'Total Sections'}
-                  </span>
-                  <span className="font-bold">
-                    {biddingMethod === 'footage' 
-                      ? `${totals.totalFeetCount} FT` 
-                      : `${Math.ceil(totals.totalSectionsCount)} Sections`}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Gates</span>
-                  <span className="font-bold">{gates.reduce((acc, g) => acc + (isNaN(g.qty) ? 0 : g.qty), 0)} Units</span>
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="bg-secondary/30 p-4 rounded-xl space-y-2">
-                <div className="flex justify-between text-xs font-bold text-muted-foreground">
-                  <span>50% DEPOSIT DUE</span>
-                  <span className="font-mono">${totals.deposit.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Total Footage</span>
+                  <span className="font-bold">{totals.totalFeetCount} FT</span>
                 </div>
               </div>
             </CardContent>

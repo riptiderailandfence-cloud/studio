@@ -10,11 +10,12 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Eye, Send, Share2, Briefcase } from "lucide-react";
+import { Plus, Search, Eye, Send, Share2, Briefcase, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { toast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   draft: "secondary",
@@ -24,6 +25,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "des
 };
 
 export default function EstimatesPage() {
+  const router = useRouter();
   // Dummy data
   const estimates = [
     { id: 'est_1', customer: 'John Doe', total: 4200.50, status: 'sent', date: '2023-10-24' },
@@ -52,7 +54,6 @@ export default function EstimatesPage() {
       title: "Viewing Estimate",
       description: `Opening digital preview for ${id}...`,
     });
-    // In a production app, this would route to a dynamic [id] page or open a PDF
   };
 
   return (
@@ -86,7 +87,7 @@ export default function EstimatesPage() {
               <TableHead className="font-bold">Date</TableHead>
               <TableHead className="font-bold">Total</TableHead>
               <TableHead className="font-bold">Status</TableHead>
-              <TableHead className="w-[200px] font-bold text-right">Actions</TableHead>
+              <TableHead className="w-[240px] font-bold text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -103,6 +104,15 @@ export default function EstimatesPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      title="Edit"
+                      onClick={() => router.push(`/estimates/new?edit=${est.id}`)}
+                      className="h-8 w-8 text-slate-500 hover:text-primary"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     <Button 
                       variant="ghost" 
                       size="icon" 

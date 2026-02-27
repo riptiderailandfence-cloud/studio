@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -160,7 +161,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-8">
               <div className="space-y-4">
                 <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Percent className="h-4 w-4" /> Pricing &amp; Tax
+                  <Percent className="h-4 w-4" /> Pricing & Tax
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="grid gap-2">
@@ -187,9 +188,20 @@ export default function SettingsPage() {
                     <Label>Default Percentage (%)</Label>
                     <Input type="number" defaultValue="30" placeholder="e.g. 30" />
                   </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-secondary/10">
+                    <div className="space-y-0.5">
+                      <Label>Enable Sales Tax</Label>
+                      <p className="text-[11px] text-muted-foreground">Toggle sales tax on estimates.</p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
                   <div className="grid gap-2">
                     <Label>Sales Tax Rate (%)</Label>
                     <Input type="number" step="0.01" defaultValue="8.25" placeholder="e.g. 8.25" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Material Tax Rate (%)</Label>
+                    <Input type="number" step="0.01" defaultValue="0.00" placeholder="e.g. 5.00" />
                   </div>
                 </div>
 
@@ -456,5 +468,3 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
-  );
-}

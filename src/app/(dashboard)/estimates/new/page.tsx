@@ -32,7 +32,9 @@ import {
   Loader2,
   MessageSquare,
   Pencil,
-  MapPin
+  MapPin,
+  FileText,
+  ShieldCheck
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -569,6 +571,116 @@ function NewEstimateContent() {
 
           {step === 5 && (
             <div className="space-y-6">
+              {/* Client Quote Preview */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-primary" />
+                  <h3 className="text-xl font-bold">Client Quote Preview</h3>
+                </div>
+                
+                <Card className="border-2 shadow-xl overflow-hidden">
+                  <CardHeader className="bg-slate-900 text-white p-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-[10px] opacity-70 uppercase tracking-widest font-black mb-1">Project Estimate</p>
+                        <h2 className="text-2xl font-black font-mono">PREVIEW</h2>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="secondary" className="bg-amber-500 hover:bg-amber-600 text-white border-none">
+                          PENDING
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-8">
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-[10px] uppercase tracking-widest text-slate-400">Client</h4>
+                        <p className="text-lg font-black">{selectedCustomer?.name || 'No Client Selected'}</p>
+                        <p className="text-sm text-slate-500">{jobAddress || 'No Address Provided'}</p>
+                      </div>
+                      <div className="space-y-2 text-right">
+                        <h4 className="font-bold text-[10px] uppercase tracking-widest text-slate-400">Issued By</h4>
+                        <p className="text-sm font-bold">Evergreen Fencing Co.</p>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <h4 className="font-bold text-sm flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" /> Scope of Work
+                      </h4>
+                      <div className="space-y-3">
+                        {sections.map((sec, i) => {
+                          const style = fenceStyles.find(s => s.id === sec.fenceStyleId);
+                          if (!style || !sec.feet) return null;
+                          return (
+                            <div key={sec.id} className="border-2 border-slate-100 rounded-xl p-4 bg-slate-50/50">
+                              <div className="flex justify-between items-center">
+                                <div className="space-y-1">
+                                  <p className="font-black text-slate-900">{style.name}</p>
+                                  <p className="text-xs text-slate-500 italic">{sec.location || 'Main boundary'}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-black font-mono">{sec.feet} FT</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {gates.map((g) => {
+                          const style = gateStyles.find(s => s.id === g.styleId);
+                          if (!style || !g.qty) return null;
+                          return (
+                            <div key={g.id} className="border-2 border-slate-100 rounded-xl p-4 bg-slate-50/50">
+                              <div className="flex justify-between items-center">
+                                <div className="space-y-1">
+                                  <p className="font-black text-slate-900">{style.name}</p>
+                                  <p className="text-xs text-slate-500 italic">{g.location || 'Entry point'}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-black font-mono">x{g.qty}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col md:flex-row justify-between items-end gap-6 pt-4 border-t-2 border-slate-100">
+                      <div className="flex-1 max-w-sm">
+                        <div className="bg-slate-50 p-4 rounded-xl space-y-2 border">
+                          <h4 className="font-bold text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <ShieldCheck className="h-3 w-3" /> Terms
+                          </h4>
+                          <p className="text-[9px] text-slate-400 uppercase leading-tight">
+                            50% deposit required to secure production date. Final balance due upon completion.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="w-full md:w-64 space-y-2">
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>Subtotal</span>
+                          <span className="font-mono font-bold">${totals.sellTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>Tax (8%)</span>
+                          <span className="font-mono font-bold">${totals.tax.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-2xl font-black text-slate-900 pt-2 border-t">
+                          <span>TOTAL</span>
+                          <span className="font-mono">${totals.finalTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Separator />
+
               <Card className="border-2 shadow-sm">
                 <CardHeader>
                   <CardTitle>Pricing Strategy</CardTitle>

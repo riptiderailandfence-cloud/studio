@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -30,7 +31,8 @@ import {
   Zap,
   Loader2,
   MessageSquare,
-  Pencil
+  Pencil,
+  MapPin
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -44,6 +46,7 @@ interface ProjectSection {
   fenceStyleId: string;
   postStyleId: string;
   feet: number;
+  location: string;
 }
 
 interface GateEntry {
@@ -69,7 +72,7 @@ function NewEstimateContent() {
   
   // Multiple Sections State
   const [sections, setSections] = useState<ProjectSection[]>([
-    { id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0 }
+    { id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0, location: "" }
   ]);
 
   const [enableDemo, setEnableDemo] = useState(false);
@@ -107,7 +110,7 @@ function NewEstimateContent() {
       setJobAddress('123 Oak Lane, Springfield');
       setCrewNotes('Watch for buried sprinkler line on East side.');
       setSections([
-        { id: '1', fenceStyleId: 'style_1', postStyleId: 'mat_3', feet: 120 }
+        { id: '1', fenceStyleId: 'style_1', postStyleId: 'mat_3', feet: 120, location: 'Back Yard' }
       ]);
       setGates([
         { id: 'g1', styleId: 'mat_1', qty: 1, location: 'Side Entrance' }
@@ -130,7 +133,7 @@ function NewEstimateContent() {
   const gateStyles = useMemo(() => SAMPLE_STYLES.filter(s => s.type === 'gate'), []);
 
   const addSection = () => {
-    setSections([...sections, { id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0 }]);
+    setSections([...sections, { id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0, location: "" }]);
   };
 
   const updateSection = (id: string, updates: Partial<ProjectSection>) => {
@@ -409,8 +412,16 @@ function NewEstimateContent() {
                     </Button>
                   </CardHeader>
                   <CardContent className="pt-6 space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
+                    <div className="grid md:grid-cols-12 gap-6">
+                      <div className="md:col-span-4 space-y-2">
+                        <Label>Fence Location</Label>
+                        <Input 
+                          placeholder="e.g. Back Yard" 
+                          value={sec.location} 
+                          onChange={(e) => updateSection(sec.id, { location: e.target.value })} 
+                        />
+                      </div>
+                      <div className="md:col-span-4 space-y-2">
                         <Label>Fence Style</Label>
                         <Select value={sec.fenceStyleId} onValueChange={(v) => updateSection(sec.id, { fenceStyleId: v })}>
                           <SelectTrigger>
@@ -423,7 +434,7 @@ function NewEstimateContent() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="space-y-2">
+                      <div className="md:col-span-4 space-y-2">
                         <Label>Post Type</Label>
                         <Select value={sec.postStyleId} onValueChange={(v) => updateSection(sec.id, { postStyleId: v })}>
                           <SelectTrigger>

@@ -1,0 +1,1033 @@
+{
+  "entities": {
+    "Tenant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tenant",
+      "type": "object",
+      "description": "Represents a single business tenant in the multi-tenant SaaS application, owning its own data and users.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tenant entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The legal or business name of the tenant."
+        },
+        "ownerUserId": {
+          "type": "string",
+          "description": "Reference to the User entity that created and owns this tenant. (Relationship: User 1:N Tenant)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the tenant record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the tenant record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "ownerUserId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TenantSettings": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TenantSettings",
+      "type": "object",
+      "description": "Stores tenant-specific configuration settings for pricing, deposits, and other defaults.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the TenantSettings entity, typically matching the tenantId it belongs to."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this setting belongs to. (Relationship: Tenant 1:1 TenantSettings)"
+        },
+        "pricingSettings": {
+          "type": "array",
+          "description": "Configuration object for default pricing strategies and calculation modes.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "depositSettings": {
+          "type": "array",
+          "description": "Configuration object for default deposit requirements.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the settings record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the settings record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "pricingSettings",
+        "depositSettings",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a business user within a specific tenant, with defined roles and access permissions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity (typically Firebase Auth UID)."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this user belongs to. (Relationship: Tenant 1:N User)"
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for authentication and contact.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "The assigned role for the user (Owner/Admin, Estimator/Office user, Crew Manager, Crew Member), determining their permissions."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Indicates if the user account is currently active."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "email",
+        "name",
+        "role",
+        "active",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer or lead managed through the CRM module.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Customer entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this customer belongs to. (Relationship: Tenant 1:N Customer)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the customer."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the customer."
+        },
+        "email": {
+          "type": "string",
+          "description": "The primary email address of the customer.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The primary phone number of the customer."
+        },
+        "address": {
+          "type": "array",
+          "description": "The primary physical address of the customer or job site.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string",
+          "description": "General notes or comments about the customer."
+        },
+        "pipelineStage": {
+          "type": "string",
+          "description": "The current stage of the customer in the sales pipeline (e.g., Lead, Contacted, Qualified, Won, Lost)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the customer record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the customer record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "firstName",
+        "lastName",
+        "email",
+        "phone",
+        "address",
+        "pipelineStage",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Material": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Material",
+      "type": "object",
+      "description": "Defines a raw material used in fence construction, including its cost and vendor information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Material entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this material belongs to. (Relationship: Tenant 1:N Material)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the material (e.g., 'Cedar Picket 1x6', 'Galvanized Steel Post')."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit of measurement for the material (e.g., 'linear foot', 'each', 'sq ft')."
+        },
+        "unitCost": {
+          "type": "number",
+          "description": "The cost of one unit of the material."
+        },
+        "vendor": {
+          "type": "string",
+          "description": "The supplier or vendor of the material."
+        },
+        "category": {
+          "type": "string",
+          "description": "A classification for the material (e.g., 'Wood', 'Vinyl', 'Hardware')."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Indicates if the material is currently active and available for use in styles."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the material record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the material record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "unit",
+        "unitCost",
+        "vendor",
+        "category",
+        "active",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "FenceStyle": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FenceStyle",
+      "type": "object",
+      "description": "Defines a complete fence style, including its constituent materials and measurement basis.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FenceStyle entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this fence style belongs to. (Relationship: Tenant 1:N FenceStyle)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the fence style (e.g., '6ft Privacy Cedar Fence')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the fence style."
+        },
+        "measurementBasis": {
+          "type": "string",
+          "description": "The basis for measurement and cost calculation for this style ('perFoot' or 'perSection')."
+        },
+        "billOfMaterials": {
+          "type": "array",
+          "description": "List of materials required per unit (foot or section) of this fence style.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the fence style record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the fence style record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "description",
+        "measurementBasis",
+        "billOfMaterials",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PostStyle": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PostStyle",
+      "type": "object",
+      "description": "Defines a post style used in fence construction, including its constituent materials.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PostStyle entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this post style belongs to. (Relationship: Tenant 1:N PostStyle)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the post style (e.g., '4x4 Treated Pine Post')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the post style."
+        },
+        "billOfMaterials": {
+          "type": "array",
+          "description": "List of materials required per unit of this post style (e.g., per post).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the post style record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the post style record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "description",
+        "billOfMaterials",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "GateStyle": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GateStyle",
+      "type": "object",
+      "description": "Defines a gate style used in fence construction, including its constituent materials.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GateStyle entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this gate style belongs to. (Relationship: Tenant 1:N GateStyle)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the gate style (e.g., '3ft Walk-Through Gate')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the gate style."
+        },
+        "billOfMaterials": {
+          "type": "array",
+          "description": "List of materials required per unit of this gate style (e.g., per gate).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the gate style record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the gate style record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "description",
+        "billOfMaterials",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Estimate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Estimate",
+      "type": "object",
+      "description": "Represents a generated cost estimate for a customer's fence project, including line items, pricing, and status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Estimate entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this estimate belongs to. (Relationship: Tenant 1:N Estimate)"
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the Customer entity for whom this estimate was created. (Relationship: Customer 1:N Estimate)"
+        },
+        "contactSnapshot": {
+          "type": "array",
+          "description": "A snapshot of the customer's contact information at the time the estimate was created.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jobSiteAddress": {
+          "type": "array",
+          "description": "A snapshot of the job site address at the time the estimate was created.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lineItems": {
+          "type": "array",
+          "description": "Details of each item included in the estimate, including material and labor cost snapshots.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "calculationSettingsSnapshot": {
+          "type": "array",
+          "description": "A snapshot of the tenant's pricing and calculation settings at the time the estimate was created.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "materialsCost": {
+          "type": "number",
+          "description": "The total material cost for the entire estimate."
+        },
+        "laborCost": {
+          "type": "number",
+          "description": "The total labor cost for the entire estimate."
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "The subtotal of the estimate before tax and deposit."
+        },
+        "tax": {
+          "type": "number",
+          "description": "The total tax amount for the estimate."
+        },
+        "total": {
+          "type": "number",
+          "description": "The grand total of the estimate, including all costs and tax."
+        },
+        "depositRequiredAmount": {
+          "type": "number",
+          "description": "The total deposit amount required for this estimate."
+        },
+        "depositPercentage": {
+          "type": "number",
+          "description": "The percentage of the total required as a deposit (0-1)."
+        },
+        "depositPaidAmount": {
+          "type": "number",
+          "description": "The actual amount of deposit paid by the client."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current workflow status of the estimate (e.g., 'draft', 'sent', 'viewed', 'accepted', 'deposit_paid', 'scheduled', 'completed')."
+        },
+        "clientAccessToken": {
+          "type": "string",
+          "description": "A secure, non-guessable token for client portal access to this specific estimate. (Store hashed if possible)"
+        },
+        "clientUrl": {
+          "type": "string",
+          "description": "The full URL for client portal access using the access token.",
+          "format": "uri"
+        },
+        "lastViewedAt": {
+          "type": "string",
+          "description": "Timestamp when the client last viewed the estimate in the portal.",
+          "format": "date-time"
+        },
+        "sentAt": {
+          "type": "string",
+          "description": "Timestamp when the estimate was first sent to the client.",
+          "format": "date-time"
+        },
+        "acceptedAt": {
+          "type": "string",
+          "description": "Timestamp when the client accepted the estimate.",
+          "format": "date-time"
+        },
+        "depositPaidAt": {
+          "type": "string",
+          "description": "Timestamp when the deposit payment was successfully processed.",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the estimate record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the estimate record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "customerId",
+        "contactSnapshot",
+        "jobSiteAddress",
+        "lineItems",
+        "calculationSettingsSnapshot",
+        "materialsCost",
+        "laborCost",
+        "subtotal",
+        "tax",
+        "total",
+        "depositRequiredAmount",
+        "depositPercentage",
+        "depositPaidAmount",
+        "status",
+        "clientAccessToken",
+        "clientUrl",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CrewMember": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CrewMember",
+      "type": "object",
+      "description": "Represents an individual crew member with their rates and assignments.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CrewMember entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this crew member belongs to. (Relationship: Tenant 1:N CrewMember)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User entity if this crew member also has a user account for the app. (Relationship: User 1:1 CrewMember)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the crew member."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the crew member for contact.",
+          "format": "email"
+        },
+        "hourlyRate": {
+          "type": "number",
+          "description": "The hourly rate for this crew member (e.g., $/hour)."
+        },
+        "laborRate": {
+          "type": "array",
+          "description": "Specific labor rate details for certain tasks.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "productionRate": {
+          "type": "array",
+          "description": "Specific production rate details for certain tasks.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Indicates if the crew member is currently active and available."
+        },
+        "crewIds": {
+          "type": "array",
+          "description": "References to Crew entities this member belongs to. (Relationship: Crew N:N CrewMember)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the crew member record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the crew member record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "userId",
+        "name",
+        "email",
+        "hourlyRate",
+        "active",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Crew": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Crew",
+      "type": "object",
+      "description": "Represents a team of crew members, typically assigned to jobs.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Crew entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this crew belongs to. (Relationship: Tenant 1:N Crew)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the crew (e.g., 'Alpha Team')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description or purpose of the crew."
+        },
+        "crewMemberIds": {
+          "type": "array",
+          "description": "References to CrewMember entities that are part of this crew. (Relationship: Crew N:N CrewMember)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the crew record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the crew record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "crewMemberIds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Job": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Job",
+      "type": "object",
+      "description": "Represents an active job derived from an accepted estimate, assigned to crews.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Job entity."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to the Tenant entity this job belongs to. (Relationship: Tenant 1:N Job)"
+        },
+        "estimateId": {
+          "type": "string",
+          "description": "Reference to the Estimate entity from which this job was created. (Relationship: Estimate 1:1 Job)"
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the Customer entity for this job. (Relationship: Customer 1:N Job)"
+        },
+        "jobSiteAddress": {
+          "type": "array",
+          "description": "A snapshot of the job site address for this job.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "crewIds": {
+          "type": "array",
+          "description": "References to Crew entities assigned to this job. (Relationship: Crew N:N Job)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "assignedCrewMemberIds": {
+          "type": "array",
+          "description": "References to specific CrewMember entities assigned to this job, regardless of their crew. (Relationship: CrewMember N:N Job)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The scheduled start date and time for the job.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The scheduled end date and time for the job.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the job (e.g., 'pending', 'in_progress', 'completed', 'cancelled')."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Internal notes or comments about the job."
+        },
+        "attachments": {
+          "type": "array",
+          "description": "List of attached files (e.g., photos, documents) stored in Firebase Storage.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the job record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the job record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "estimateId",
+        "customerId",
+        "jobSiteAddress",
+        "crewIds",
+        "startDate",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. The document ID (`userId`) is the Firebase Authentication UID. Each user document contains their `tenantId` and `role`, crucial for tenant-wide authorization checks. This collection is not nested under `/tenants/{tenantId}` to allow users to retrieve their own tenant context upon login.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, matching their Firebase Authentication UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}",
+        "definition": {
+          "entityName": "Tenant",
+          "schema": {
+            "$ref": "#/backend/entities/Tenant"
+          },
+          "description": "Represents a single business tenant. The document ID (`tenantId`) is the unique identifier for the tenant. Contains top-level tenant information and `ownerUserId`.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/settings/general",
+        "definition": {
+          "entityName": "TenantSettings",
+          "schema": {
+            "$ref": "#/backend/entities/TenantSettings"
+          },
+          "description": "Stores tenant-specific configuration settings for pricing, deposits, and other defaults. This is a subcollection of 'tenants' with a fixed document ID 'general' to ensure a 1:1 relationship. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Manages customer and lead information for a specific tenant. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/materials/{materialId}",
+        "definition": {
+          "entityName": "Material",
+          "schema": {
+            "$ref": "#/backend/entities/Material"
+          },
+          "description": "Defines raw materials and their costs for a specific tenant. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "materialId",
+              "description": "The unique identifier for the material."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/styles/fences/{fenceStyleId}",
+        "definition": {
+          "entityName": "FenceStyle",
+          "schema": {
+            "$ref": "#/backend/entities/FenceStyle"
+          },
+          "description": "Defines complete fence styles including bill of materials for a specific tenant. Organized under a 'styles' subcollection. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "fenceStyleId",
+              "description": "The unique identifier for the fence style."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/styles/posts/{postStyleId}",
+        "definition": {
+          "entityName": "PostStyle",
+          "schema": {
+            "$ref": "#/backend/entities/PostStyle"
+          },
+          "description": "Defines post styles including bill of materials for a specific tenant. Organized under a 'styles' subcollection. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "postStyleId",
+              "description": "The unique identifier for the post style."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/styles/gates/{gateStyleId}",
+        "definition": {
+          "entityName": "GateStyle",
+          "schema": {
+            "$ref": "#/backend/entities/GateStyle"
+          },
+          "description": "Defines gate styles including bill of materials for a specific tenant. Organized under a 'styles' subcollection. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "gateStyleId",
+              "description": "The unique identifier for the gate style."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/estimates/{estimateId}",
+        "definition": {
+          "entityName": "Estimate",
+          "schema": {
+            "$ref": "#/backend/entities/Estimate"
+          },
+          "description": "Represents generated cost estimates for a customer's project. Crucially includes denormalized 'tenantId' from the path, a `clientAccessToken` for secure client portal access, and snapshots of `contactSnapshot`, `jobSiteAddress`, `lineItems`, and `calculationSettingsSnapshot` to ensure historical integrity.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "estimateId",
+              "description": "The unique identifier for the estimate."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/crewMembers/{crewMemberId}",
+        "definition": {
+          "entityName": "CrewMember",
+          "schema": {
+            "$ref": "#/backend/entities/CrewMember"
+          },
+          "description": "Represents individual crew members, their rates, and optionally links to a User entity if they have app access. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "crewMemberId",
+              "description": "The unique identifier for the crew member."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/crews/{crewId}",
+        "definition": {
+          "entityName": "Crew",
+          "schema": {
+            "$ref": "#/backend/entities/Crew"
+          },
+          "description": "Represents teams of crew members. Includes denormalized 'tenantId' from the path.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "crewId",
+              "description": "The unique identifier for the crew."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/jobs/{jobId}",
+        "definition": {
+          "entityName": "Job",
+          "schema": {
+            "$ref": "#/backend/entities/Job"
+          },
+          "description": "Represents active jobs, derived from accepted estimates and assigned to crews/members. Includes denormalized 'tenantId' from the path. `attachments` field will store references to Firebase Cloud Storage.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "jobId",
+              "description": "The unique identifier for the job."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure for PillarPath is designed with a strong emphasis on multi-tenancy, Authorization Independence, and support for Queryable Access Patterns (QAPs). The core principle is 'tenant-first' organization, ensuring that all tenant-specific data is logically and physically segregated.\n\n**Authorization Independence via Denormalization:**\n1.  **`tenantId` Embedding:** Every document belonging to a specific tenant (e.g., Customer, Material, Estimate, Job) will explicitly include a `tenantId` field. For collections nested under `/tenants/{tenantId}/`, the `tenantId` is implicitly part of the path, but will also be stored within the document itself to reinforce this for rules and consistency. This denormalization is CRITICAL as it eliminates the need for security rules to perform `get()` operations on parent documents (e.g., a `Tenant` document) to determine ownership. A user's `tenantId` is fetched once from their `/users/{uid}` profile, and then rules can directly compare `request.auth.uid`'s associated `tenantId` with `resource.data.tenantId` for any document.\n2.  **User Roles and Tenant Association:** The `/users/{userId}` document stores the user's `tenantId` and `role`. This allows all authorization checks to start from `request.auth.uid` and immediately retrieve the necessary `tenantId` and role without chained `get()` calls.\n3.  **Estimate Snapshots:** The `Estimate` entity includes embedded snapshots of `contactSnapshot`, `jobSiteAddress`, `lineItems`, and `calculationSettingsSnapshot`. This ensures that historical estimate data remains consistent, even if underlying customer details, material costs, or pricing settings change, thereby preserving the integrity of past estimates and removing dependencies on live data for historical views. The `clientAccessToken` for portal access is also stored directly on the `Estimate` document, making client access checks self-contained.\n\n**Support for Queryable Access Patterns (QAPs):**\n1.  **Structural Segregation for Tenants:** By nesting most tenant-specific collections under `/tenants/{tenantId}/`, Firestore security rules can easily enforce that `list` operations (queries) are automatically scoped to the `tenantId` specified in the path. For example, a query to `/tenants/myTenantId/customers` will implicitly match rules that check `tenantId == request.path[1]` (where `request.path[1]` is `myTenantId`). This means the rules are not 'filtering' results after a broad query, but rather validating the legitimacy of the query itself based on the user's authenticated `tenantId` and the requested path.\n2.  **Role-Based Access:** User roles (Owner/Admin, Estimator, Crew Manager, Crew Member) stored directly in the `/users/{userId}` document allow rules to specify which roles can `read`, `write`, or `update` specific collections. For `list` operations, this means that a user's role is checked against the collection's access requirements, preventing unauthorized users from even attempting to list documents they shouldn't see.\n3.  **Client Portal Token Access:** For `Estimate` documents, a client can access a *specific* estimate via a secure `clientAccessToken` passed in the URL. Security rules for `/tenants/{tenantId}/estimates/{estimateId}` will explicitly check if `resource.data.clientAccessToken == request.query.token`. This makes `get` operations for a single estimate secure without requiring the client to have a full Firebase Auth account. If client authentication were introduced, `list` operations for a client could be enabled by matching `customerId` in the client's token to `resource.data.customerId`."
+  }
+}

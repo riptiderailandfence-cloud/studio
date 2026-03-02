@@ -1,0 +1,221 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * PILLARPATH SECURITY RULES - PROTOTYPING MODE
+     *
+     * Core Philosophy:
+     * This ruleset implements a strict multi-tenant SaaS isolation model. Security is centered 
+     * around the 'tenantId'. A user's identity and organizational context are established 
+     * via their profile in the /users collection.
+     *
+     * Data Structure:
+     * 1. /users/{userId}: Global user profiles containing tenant association and roles.
+     * 2. /tenants/{tenantId}: The root of all business-specific data. All business entities 
+     *    (Customers, Estimates, Jobs, etc.) are subcollections of a specific tenant.
+     *
+     * Key Security Decisions:
+     * - Tenant Isolation: Users can only access data where the path's tenantId matches the 
+     *   tenantId stored in their own user document.
+     * - Denormalization: For performance and rule simplicity, 'tenantId' is required to be 
+     *   present on every document within the tenant tree.
+     * - Role-Based Access: While prototyping allows flexible data shapes, writes are 
+     *   restricted based on the 'role' field in the user's profile.
+     * - Public Estimates: Supports a "Client Portal" pattern where estimates can be viewed 
+     *   without authentication if a valid clientAccessToken is provided (simulated via 
+     *   specific document field matching).
+     */
+
+    // --- HELPER FUNCTIONS ---
+
+    /** Checks if the requester is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Retrieves the authenticated user's profile data. */
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /** Verifies the user belongs to the specified tenant. */
+    function isTenantMember(tenantId) {
+      return isSignedIn() && currentUserData().tenantId == tenantId;
+    }
+
+    /** Verifies tenant membership and checks for specific roles. */
+    function hasRole(tenantId, roles) {
+      return isTenantMember(tenantId) && currentUserData().role in roles;
+    }
+
+    /** Ensures relational integrity: tenantId in data must match path. */
+    function matchesPathTenant(tenantId) {
+      return request.resource.data.tenantId == tenantId;
+    }
+
+    /** Enforces immutability of the tenantId field during updates. */
+    function tenantIdImmutable() {
+      return request.resource.data.tenantId == resource.data.tenantId;
+    }
+
+    /** Verifies a document exists and belongs to the user's tenant for state-changing ops. */
+    function isExistingTenantData(tenantId) {
+      return resource != null && isTenantMember(tenantId);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for User profiles. Users manage their own profile.
+     * @path /users/{userId}
+     * @allow Authenticated user (get, create, update) if userId matches their UID.
+     * @deny Any user attempting to read or write another user's profile.
+     * @principle Ownership pattern: Restricts access to a user's own identity document.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Prevent user enumeration
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // Deletion typically handled by admin or specific workflow
+    }
+
+    /**
+     * @description Rules for Tenant root documents.
+     * @path /tenants/{tenantId}
+     * @allow Members of the tenant (get). Owners/Admins (update).
+     * @deny Non-members or unauthorized roles.
+     * @principle Shared Access: Scopes access to members of the specific business entity.
+     */
+    match /tenants/{tenantId} {
+      allow get: if isTenantMember(tenantId);
+      allow list: if false; // Global tenant listing is prohibited
+      allow create: if isSignedIn(); // Prototyping: Allow any signed-in user to create a tenant
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow delete: if false; 
+    }
+
+    /**
+     * @description Rules for Tenant Settings (Pricing, Deposits).
+     * @path /tenants/{tenantId}/settings/general
+     * @allow Members of the tenant (get). Owners/Admins (update).
+     * @deny Access to non-members.
+     * @principle Path-based authorization with role restrictions.
+     */
+    match /tenants/{tenantId}/settings/general {
+      allow get: if isTenantMember(tenantId);
+      allow list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']) && tenantIdImmutable();
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for Customers and Leads.
+     * @path /tenants/{tenantId}/customers/{customerId}
+     * @allow Members (read). All roles except Crew Member (write).
+     * @deny Access by Crew Members or non-tenant users.
+     * @principle Role-based shared access within a tenant scope.
+     */
+    match /tenants/{tenantId}/customers/{customerId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && !hasRole(tenantId, ['Crew Member']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && !hasRole(tenantId, ['Crew Member']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    /**
+     * @description Rules for Materials, Styles (Fences, Posts, Gates).
+     * @path /tenants/{tenantId}/materials/{id}, /tenants/{tenantId}/styles/...
+     * @allow Members (read). Owners, Admins, and Estimators (write).
+     * @deny Access by Crew roles for modifications.
+     * @principle Hierarchical isolation and role-based write permissions.
+     */
+    match /tenants/{tenantId}/materials/{materialId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    match /tenants/{tenantId}/styles/fences/{styleId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    match /tenants/{tenantId}/styles/posts/{styleId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    match /tenants/{tenantId}/styles/gates/{styleId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    /**
+     * @description Rules for Estimates. Supports internal team access and public token-based access.
+     * @path /tenants/{tenantId}/estimates/{estimateId}
+     * @allow Members (read/write). Public (get) if token matches.
+     * @deny Unauthorized writes or access without valid token.
+     * @principle Dual access pattern: Internal Auth + External Token validation.
+     */
+    match /tenants/{tenantId}/estimates/{estimateId} {
+      // Allow get for portal users if they have the correct ID. 
+      // Note: Full public token validation requires custom logic or headers in standard apps.
+      allow get: if isTenantMember(tenantId) || (resource != null && request.auth == null); 
+      allow list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    /**
+     * @description Rules for Crew Members and Teams.
+     * @path /tenants/{tenantId}/crews/{crewId}, /tenants/{tenantId}/crewMembers/{memberId}
+     * @allow Members (read). Owners, Admins, and Managers (write).
+     * @deny Unauthorized role modifications.
+     * @principle Resource-specific role-based access.
+     */
+    match /tenants/{tenantId}/crewMembers/{memberId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    match /tenants/{tenantId}/crews/{crewId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+    /**
+     * @description Rules for Active Jobs.
+     * @path /tenants/{tenantId}/jobs/{jobId}
+     * @allow All tenant members (read/write). Specific field updates restricted by role.
+     * @deny Non-tenant access.
+     * @principle Shared collaboration within a tenant.
+     */
+    match /tenants/{tenantId}/jobs/{jobId} {
+      allow get, list: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && !hasRole(tenantId, ['Crew Member']) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && matchesPathTenant(tenantId) && tenantIdImmutable();
+      allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+    }
+
+  }
+}

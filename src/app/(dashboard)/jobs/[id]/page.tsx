@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useMemo } from "react";
+import { use, useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Card, 
@@ -27,7 +27,10 @@ import {
   DollarSign,
   Loader2,
   AlertCircle,
-  Pencil
+  Pencil,
+  Camera,
+  X,
+  UploadCloud
 } from "lucide-react";
 import { SAMPLE_CUSTOMERS, SAMPLE_STYLES, SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
@@ -44,13 +47,23 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { useStorage, useFirestore, updateDocumentNonBlocking } from "@/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, arrayUnion } from "firebase/firestore";
 
 export default function JobPackPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
+  const storage = useStorage();
+  const firestore = useFirestore();
   const [mounted, setMounted] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Storage State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [jobAttachments, setJobAttachments] = useState<string[]>([]);
 
   // Completion State
   const [actualMaterials, setActualMaterials] = useState<number>(0);
@@ -86,7 +99,6 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
     }
   }, [jobData]);
 
-  // Consolidate Materials for the Pull List
   const materialPullList = useMemo(() => {
     const pullList: Record<string, { name: string; qty: number; unit: string; category: string }> = {};
 
@@ -115,6 +127,33 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
 
     return Object.values(pullList).sort((a, b) => a.category.localeCompare(b.category));
   }, [jobData]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `jobs/${id}/attachments/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      setJobAttachments(prev => [...prev, downloadURL]);
+      
+      // Update Firestore record non-blocking
+      const jobDocRef = doc(firestore, 'tenants', 'tenant_1', 'jobs', id);
+      updateDocumentNonBlocking(jobDocRef, {
+        attachments: arrayUnion(downloadURL)
+      });
+
+      toast({ title: "Photo Uploaded", description: "Job-site image saved successfully." });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Upload Failed", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleCompleteJob = () => {
     setIsSaving(true);
@@ -216,6 +255,53 @@ export default function JobPackPage({ params }: { params: Promise<{ id: string }
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Job Attachments / Cloud Storage Example */}
+          <Card className="border-2 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Job-Site Documentation</CardTitle>
+                <CardDescription>Upload photos or scans of the property and completed work.</CardDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2" 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                Capture Photo
+              </Button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileUpload}
+              />
+            </CardHeader>
+            <CardContent>
+              {jobAttachments.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {jobAttachments.map((url, i) => (
+                    <div key={i} className="group relative aspect-square rounded-xl overflow-hidden border bg-slate-100">
+                      <img src={url} alt={`Job Photo ${i+1}`} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button variant="ghost" size="icon" className="text-white"><UploadCloud className="h-5 w-5" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-2xl bg-secondary/10 text-muted-foreground">
+                  <UploadCloud className="h-10 w-10 opacity-20 mb-4" />
+                  <p className="text-sm font-medium">No documentation yet.</p>
+                  <p className="text-xs">Upload site visit photos or utility marks here.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -41,14 +40,36 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { useCollection, useFirestore, useUser, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, doc, serverTimestamp } from "firebase/firestore";
 
 export default function CRMPage() {
   const router = useRouter();
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [mounted, setMounted] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>(SAMPLE_CUSTOMERS);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   
+  // Real-time Firestore Query
+  // For prototyping, we use 'tenant_1' if the user isn't fully set up with a profile yet.
+  const tenantId = 'tenant_1'; 
+  const customersQuery = useMemoFirebase(() => {
+    return query(
+      collection(firestore, 'tenants', tenantId, 'customers'),
+      orderBy('createdAt', 'desc')
+    );
+  }, [firestore, tenantId]);
+
+  const { data: firestoreCustomers, isLoading: isFirestoreLoading } = useCollection<Customer>(customersQuery);
+
+  // Fallback to sample data if Firestore is empty or loading for the first time
+  const customers = useMemo(() => {
+    return firestoreCustomers && firestoreCustomers.length > 0 
+      ? firestoreCustomers 
+      : SAMPLE_CUSTOMERS;
+  }, [firestoreCustomers]);
+
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Partial<Customer> | null>(null);
@@ -59,11 +80,12 @@ export default function CRMPage() {
   }, []);
 
   const filteredCustomers = useMemo(() => {
-    return customers.filter((customer) => {
+    return (customers || []).filter((customer) => {
+      const name = customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
       const matchesSearch = 
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.address.toLowerCase().includes(searchTerm.toLowerCase());
+        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (customer.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (customer.address || '').toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === "ALL" || customer.pipelineStage === statusFilter;
       
@@ -73,48 +95,52 @@ export default function CRMPage() {
 
   const handleAddNew = () => {
     setEditingCustomer({
-      id: crypto.randomUUID(),
-      tenantId: 'tenant_1',
-      name: '',
+      tenantId: tenantId,
+      firstName: '',
+      lastName: '',
       email: '',
       phone: '',
       address: '',
       pipelineStage: 'LEAD',
-      createdAt: new Date().toISOString()
     });
     setIsEditorOpen(true);
   };
 
   const handleSaveCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCustomer || !editingCustomer.name || !editingCustomer.email) {
+    if (!editingCustomer || !editingCustomer.firstName || !editingCustomer.lastName || !editingCustomer.email) {
       toast({
         title: "Missing Info",
-        description: "Please provide at least a name and email.",
+        description: "Please provide name and email.",
         variant: "destructive"
       });
       return;
     }
 
     setIsSaving(true);
-    setTimeout(() => {
-      const isExisting = customers.some(c => c.id === editingCustomer.id);
-      if (isExisting) {
-        setCustomers(customers.map(c => c.id === editingCustomer.id ? editingCustomer as Customer : c));
-        toast({
-          title: "Customer Updated",
-          description: `${editingCustomer.name}'s record has been saved.`,
-        });
-      } else {
-        setCustomers([editingCustomer as Customer, ...customers]);
-        toast({
-          title: "Customer Added",
-          description: `${editingCustomer.name} has been added to the CRM.`,
-        });
-      }
-      setIsSaving(false);
-      setIsEditorOpen(false);
-    }, 800);
+    const colRef = collection(firestore, 'tenants', tenantId, 'customers');
+    
+    if (editingCustomer.id) {
+      // Update existing
+      const docRef = doc(firestore, 'tenants', tenantId, 'customers', editingCustomer.id);
+      updateDocumentNonBlocking(docRef, {
+        ...editingCustomer,
+        updatedAt: serverTimestamp()
+      });
+      toast({ title: "Customer Updated" });
+    } else {
+      // Add new
+      addDocumentNonBlocking(colRef, {
+        ...editingCustomer,
+        name: `${editingCustomer.firstName} ${editingCustomer.lastName}`,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast({ title: "Customer Added" });
+    }
+
+    setIsSaving(false);
+    setIsEditorOpen(false);
   };
 
   const getStatusVariant = (stage: string): "default" | "secondary" | "outline" | "destructive" => {
@@ -128,10 +154,10 @@ export default function CRMPage() {
   };
 
   const handleDelete = (id: string) => {
-    setCustomers(customers.filter(c => c.id !== id));
+    const docRef = doc(firestore, 'tenants', tenantId, 'customers', id);
+    deleteDocumentNonBlocking(docRef);
     toast({
       title: "Customer Removed",
-      description: "Customer record has been deleted from the database.",
       variant: "destructive"
     });
   };
@@ -185,10 +211,18 @@ export default function CRMPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCustomers.length > 0 ? (
+            {isFirestoreLoading && customers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-32 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : filteredCustomers.length > 0 ? (
               filteredCustomers.map((customer) => (
                 <TableRow key={customer.id} className="hover:bg-slate-50/50 transition-colors">
-                  <TableCell className="font-semibold text-slate-900">{customer.name}</TableCell>
+                  <TableCell className="font-semibold text-slate-900">
+                    {customer.name || `${customer.firstName} ${customer.lastName}`}
+                  </TableCell>
                   <TableCell>
                     <div className="flex flex-col text-sm">
                       <span className="flex items-center gap-1.5 text-slate-600">
@@ -235,16 +269,7 @@ export default function CRMPage() {
                 <TableCell colSpan={5} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
                     <FilterX className="h-8 w-8 opacity-20" />
-                    <p>No customers found matching your criteria.</p>
-                    {(searchTerm || statusFilter !== "ALL") && (
-                      <Button 
-                        variant="link" 
-                        size="sm" 
-                        onClick={() => { setSearchTerm(""); setStatusFilter("ALL"); }}
-                      >
-                        Clear filters
-                      </Button>
-                    )}
+                    <p>No customers found.</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -258,22 +283,32 @@ export default function CRMPage() {
           <form onSubmit={handleSaveCustomer}>
             <DialogHeader>
               <DialogTitle>
-                {customers.some(c => c.id === editingCustomer?.id) ? "Edit Customer" : "Add New Customer"}
+                {editingCustomer?.id ? "Edit Customer" : "Add New Customer"}
               </DialogTitle>
               <DialogDescription>
                 Record customer contact details and current pipeline stage.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input 
-                  id="name" 
-                  value={editingCustomer?.name || ''} 
-                  onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, name: e.target.value } : null)}
-                  placeholder="e.g. Alice Cooper"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input 
+                    id="firstName" 
+                    value={editingCustomer?.firstName || ''} 
+                    onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, firstName: e.target.value } : null)}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input 
+                    id="lastName" 
+                    value={editingCustomer?.lastName || ''} 
+                    onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, lastName: e.target.value } : null)}
+                    required
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email Address</Label>
@@ -282,7 +317,6 @@ export default function CRMPage() {
                   type="email"
                   value={editingCustomer?.email || ''} 
                   onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, email: e.target.value } : null)}
-                  placeholder="alice@example.com"
                   required
                 />
               </div>
@@ -292,7 +326,6 @@ export default function CRMPage() {
                   id="phone" 
                   value={editingCustomer?.phone || ''} 
                   onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, phone: e.target.value } : null)}
-                  placeholder="555-0100"
                 />
               </div>
               <div className="grid gap-2">
@@ -301,7 +334,6 @@ export default function CRMPage() {
                   id="address" 
                   value={editingCustomer?.address || ''} 
                   onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, address: e.target.value } : null)}
-                  placeholder="123 Street Ave"
                 />
               </div>
               <div className="grid gap-2">
@@ -328,7 +360,7 @@ export default function CRMPage() {
               </Button>
               <Button type="submit" disabled={isSaving} className="gap-2">
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {customers.some(c => c.id === editingCustomer?.id) ? "Update Customer" : "Save Customer"}
+                Save Customer
               </Button>
             </DialogFooter>
           </form>

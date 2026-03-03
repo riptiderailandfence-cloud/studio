@@ -67,9 +67,11 @@ function NewEstimateContent() {
   const customersQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'customers'), orderBy('name')), [firestore, tenantId]);
   const { data: customers } = useCollection<Customer>(customersQuery);
 
-  const fencesQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'styles', 'fences'), orderBy('name')), [firestore, tenantId]);
-  const postsQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'styles', 'posts'), orderBy('name')), [firestore, tenantId]);
-  const gatesQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'styles', 'gates'), orderBy('name')), [firestore, tenantId]);
+  // Categorized style queries using flattened paths to fix segment count error
+  const fencesQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'fenceStyles'), orderBy('name')), [firestore, tenantId]);
+  const postsQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'postStyles'), orderBy('name')), [firestore, tenantId]);
+  const gatesQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'gateStyles'), orderBy('name')), [firestore, tenantId]);
+  
   const { data: fenceStyles } = useCollection<Style>(fencesQuery);
   const { data: postStyles } = useCollection<Style>(postsQuery);
   const { data: gateStyles } = useCollection<Style>(gatesQuery);
@@ -136,7 +138,6 @@ function NewEstimateContent() {
     const gateCost = gates.reduce((acc, g) => acc + (gateStyles?.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * (g.qty || 0), 0);
     materialsTotal += gateCost;
 
-    // Simplified labor: $12 per foot base for now
     const laborCost = totalFeetCount * 12;
     const baseCost = (materialsTotal + laborCost) * (1 + sOverhead);
     

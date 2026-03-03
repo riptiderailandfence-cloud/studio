@@ -207,21 +207,22 @@ export function StylesManager({ type }: StylesManagerProps) {
   const { data: profile } = useDoc(profileRef);
   const tenantId = profile?.tenantId || 'tenant_1';
 
-  // Materials for the picker
   const materialsQuery = useMemoFirebase(() => {
     return query(collection(firestore, 'tenants', tenantId, 'materials'), orderBy('name'));
   }, [firestore, tenantId]);
   const { data: firestoreMaterials } = useCollection<Material>(materialsQuery);
   const materials = firestoreMaterials || [];
 
-  // Styles collection
-  const stylesCollectionName = type === 'fence' ? 'fences' : type === 'post' ? 'posts' : 'gates';
+  // Correct collection paths based on type to ensure odd-numbered path segments
+  const stylesCollectionName = type === 'fence' ? 'fenceStyles' : type === 'post' ? 'postStyles' : 'gateStyles';
+  
   const stylesQuery = useMemoFirebase(() => {
     return query(
-      collection(firestore, 'tenants', tenantId, 'styles', stylesCollectionName),
+      collection(firestore, 'tenants', tenantId, stylesCollectionName),
       orderBy('createdAt', 'desc')
     );
   }, [firestore, tenantId, stylesCollectionName]);
+  
   const { data: styles, isLoading } = useCollection<Style>(stylesQuery);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -254,7 +255,7 @@ export function StylesManager({ type }: StylesManagerProps) {
   };
 
   const handleDelete = (id: string) => {
-    const docRef = doc(firestore, 'tenants', tenantId, 'styles', stylesCollectionName, id);
+    const docRef = doc(firestore, 'tenants', tenantId, stylesCollectionName, id);
     deleteDocumentNonBlocking(docRef);
     toast({ title: "Style Removed", variant: "destructive" });
   };
@@ -330,14 +331,15 @@ export function StylesManager({ type }: StylesManagerProps) {
     };
 
     if (editingStyle.id) {
-      const docRef = doc(firestore, 'tenants', tenantId, 'styles', stylesCollectionName, editingStyle.id);
+      const docRef = doc(firestore, 'tenants', tenantId, stylesCollectionName, editingStyle.id);
       updateDocumentNonBlocking(docRef, dataToSave);
       toast({ title: "Style Updated" });
     } else {
-      const colRef = collection(firestore, 'tenants', tenantId, 'styles', stylesCollectionName);
+      const colRef = collection(firestore, 'tenants', tenantId, stylesCollectionName);
       addDocumentNonBlocking(colRef, {
         ...dataToSave,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
       toast({ title: "Style Created" });
     }
@@ -413,7 +415,7 @@ export function StylesManager({ type }: StylesManagerProps) {
                     <Info className="h-3 w-3" />
                   </div>
                   <div className="space-y-1">
-                    {style.bom.length > 0 ? (
+                    {style.bom && style.bom.length > 0 ? (
                       style.bom.map((item, idx) => (
                         <div key={idx} className="flex justify-between text-sm py-1 border-b border-dashed border-slate-100 last:border-0">
                           <span className="text-slate-600 truncate mr-2">{item.materialName}</span>
@@ -566,7 +568,7 @@ export function StylesManager({ type }: StylesManagerProps) {
                   </div>
                   
                   <div className="space-y-3">
-                    {editingStyle?.bom.length === 0 ? (
+                    {editingStyle?.bom && editingStyle.bom.length === 0 ? (
                       <div className="text-center py-8 border-2 border-dashed rounded-lg bg-secondary/10">
                         <p className="text-xs text-muted-foreground italic">No materials added. Build your BOM to auto-calculate costs.</p>
                       </div>

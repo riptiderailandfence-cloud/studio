@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Tenant": {
@@ -888,13 +889,13 @@
         }
       },
       {
-        "path": "/tenants/{tenantId}/styles/fences/{fenceStyleId}",
+        "path": "/tenants/{tenantId}/fenceStyles/{fenceStyleId}",
         "definition": {
           "entityName": "FenceStyle",
           "schema": {
             "$ref": "#/backend/entities/FenceStyle"
           },
-          "description": "Defines complete fence styles including bill of materials for a specific tenant. Organized under a 'styles' subcollection. Includes denormalized 'tenantId' from the path.",
+          "description": "Defines complete fence styles including bill of materials for a specific tenant. Includes denormalized 'tenantId' from the path.",
           "params": [
             {
               "name": "tenantId",
@@ -908,13 +909,13 @@
         }
       },
       {
-        "path": "/tenants/{tenantId}/styles/posts/{postStyleId}",
+        "path": "/tenants/{tenantId}/postStyles/{postStyleId}",
         "definition": {
           "entityName": "PostStyle",
           "schema": {
             "$ref": "#/backend/entities/PostStyle"
           },
-          "description": "Defines post styles including bill of materials for a specific tenant. Organized under a 'styles' subcollection. Includes denormalized 'tenantId' from the path.",
+          "description": "Defines post styles including bill of materials for a specific tenant. Includes denormalized 'tenantId' from the path.",
           "params": [
             {
               "name": "tenantId",
@@ -928,13 +929,13 @@
         }
       },
       {
-        "path": "/tenants/{tenantId}/styles/gates/{gateStyleId}",
+        "path": "/tenants/{tenantId}/gateStyles/{gateStyleId}",
         "definition": {
           "entityName": "GateStyle",
           "schema": {
             "$ref": "#/backend/entities/GateStyle"
           },
-          "description": "Defines gate styles including bill of materials for a specific tenant. Organized under a 'styles' subcollection. Includes denormalized 'tenantId' from the path.",
+          "description": "Defines gate styles including bill of materials for a specific tenant. Includes denormalized 'tenantId' from the path.",
           "params": [
             {
               "name": "tenantId",

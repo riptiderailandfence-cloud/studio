@@ -50,6 +50,13 @@ interface GateEntry {
   location: string;
 }
 
+interface DemoEntry {
+  id: string;
+  description: string;
+  feet: number;
+  unitPrice: number;
+}
+
 function NewEstimateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -90,7 +97,7 @@ function NewEstimateContent() {
   const { data: fenceStyles } = useCollection<Style>(fencesQuery);
   const { data: postStyles } = useCollection<Style>(postsQuery);
   const { data: gateStyles } = useCollection<Style>(gatesQuery);
-  const { data: allMaterials } = useCollection<Material>(materialsQuery); // Renamed to allMaterials to avoid conflict
+  const { data: allMaterials } = useCollection<Material>(materialsQuery);
   const materialsMap = useMemo(() => {
     return new Map(allMaterials?.map(m => [m.id, m]));
   }, [allMaterials]);
@@ -106,6 +113,7 @@ function NewEstimateContent() {
   const [crewNotes, setCrewNotes] = useState("");
   const [sections, setSections] = useState<ProjectSection[]>([{ id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0, location: "" }]);
   const [gates, setGates] = useState<GateEntry[]>([]);
+  const [demos, setDemos] = useState<DemoEntry[]>([]);
   const [overheadPct, setOverheadPct] = useState<number>(0.10); 
   const [profitPct, setProfitPct] = useState<number>(0.30); 
   const [pricingMethod, setPricingMethod] = useState<'markup' | 'margin'>('markup');
@@ -118,9 +126,8 @@ function NewEstimateContent() {
 
   useEffect(() => {
     if (settings) {
-      // Convert percentages from whole numbers (e.g., 10 for 10%) to decimals (0.10)
       setOverheadPct((settings.overheadPct || 10) / 100);
-      setProfitPct((settings.profitPct || settings.defaultPercentage || 20) / 100); // Use profitPct or defaultPercentage
+      setProfitPct((settings.profitPct || settings.defaultPercentage || 20) / 100);
       setPricingMethod(settings.pricingMethod || 'markup');
     }
   }, [settings]);
@@ -137,6 +144,10 @@ function NewEstimateContent() {
   const addGate = () => setGates([...gates, { id: crypto.randomUUID(), styleId: "", qty: 1, location: "" }]);
   const updateGate = (id: string, updates: Partial<GateEntry>) => setGates(gates.map(g => g.id === id ? { ...g, ...updates } : g));
   const removeGate = (id: string) => setGates(gates.filter(g => g.id !== id));
+
+  const addDemo = () => setDemos([...demos, { id: crypto.randomUUID(), description: "Removal of existing fence", feet: 0, unitPrice: 3.50 }]);
+  const updateDemo = (id: string, updates: Partial<DemoEntry>) => setDemos(demos.map(d => d.id === id ? { ...d, ...updates } : d));
+  const removeDemo = (id: string) => setDemos(demos.filter(d => d.id !== id));
 
   const calculateBOMCost = (bom: Style['bom'], quantityMultiplier: number): number => {
     if (!bom || !materialsMap || quantityMultiplier === 0) return 0;
@@ -166,13 +177,13 @@ function NewEstimateContent() {
       if (fStyle?.measurementBasis === 'foot') {
         fenceStyleQuantity = feet;
       } else if (fStyle?.measurementBasis === 'section') {
-        const sectionLength = fStyle.sectionLength || 8; // Default section length
+        const sectionLength = fStyle.sectionLength || 8;
         fenceStyleQuantity = feet > 0 ? Math.ceil(feet / sectionLength) : 0;
       }
       materialsTotal += calculateBOMCost(fStyle?.bom || [], fenceStyleQuantity);
 
-      const pSpacing = pStyle?.sectionLength || 8; // Post spacing (e.g., 8ft for a section)
-      const postQty = feet > 0 ? Math.ceil(feet / pSpacing) + 1 : 0; // +1 for the last post
+      const pSpacing = pStyle?.sectionLength || 8;
+      const postQty = feet > 0 ? Math.ceil(feet / pSpacing) + 1 : 0;
       materialsTotal += calculateBOMCost(pStyle?.bom || [], postQty);
       
       totalFeetCount += feet;
@@ -185,6 +196,12 @@ function NewEstimateContent() {
     }, 0);
     materialsTotal += gateCost;
 
+    const removalTotal = demos.reduce((acc, d) => {
+      const demoFeet = isNaN(d.feet) ? 0 : d.feet;
+      const demoPrice = isNaN(d.unitPrice) ? 0 : d.unitPrice;
+      return acc + (demoFeet * demoPrice);
+    }, 0);
+
     const crewSize = settings?.crewSize || 2;
     const avgHourlyRate = settings?.avgHourlyRate || 35;
     const dailyProduction = settings?.dailyProduction || 100;
@@ -195,15 +212,15 @@ function NewEstimateContent() {
 
     const laborCost = totalFeetCount * laborCostPerFoot; 
     
-    const baseCost = (materialsTotal + laborCost) * (1 + sOverhead);
+    const baseCost = (materialsTotal + laborCost + removalTotal) * (1 + sOverhead);
     
     let sellTotal = pricingMethod === 'margin' ? (1 - sProfit <= 0 ? baseCost : baseCost / (1 - sProfit)) : baseCost * (1 + sProfit);
     const tax = sellTotal * salesTaxRate; 
     const finalTotal = sellTotal + tax;
     const deposit = finalTotal * ((settings?.depositPct || 0.5)); 
 
-    return { totalFeetCount, materialsTotal, laborCost, sellTotal, tax, finalTotal, deposit };
-  }, [sections, gates, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap]);
+    return { totalFeetCount, materialsTotal, laborCost, removalTotal, sellTotal, tax, finalTotal, deposit };
+  }, [sections, gates, demos, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap]);
 
   const handleSaveEstimate = () => {
     if (!tenantId || !selectedCustomerId || !jobAddress) {
@@ -225,12 +242,14 @@ function NewEstimateContent() {
       jobAddress,
       sections,
       gates,
+      demos,
       crewNotes,
       pricingMethod,
       pricingValue: profitPct, 
       totals: {
         materials: totals.materialsTotal,
         labor: totals.laborCost,
+        removal: totals.removalTotal,
         subtotal: totals.sellTotal,
         tax: totals.tax,
         total: totals.finalTotal,
@@ -381,61 +400,122 @@ function NewEstimateContent() {
           )}
 
           {step === 3 && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <DoorOpen className="h-5 w-5 text-primary" /> Gates & Access
-                </h3>
-                <Button onClick={addGate} variant="outline" size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" /> Add Gate
-                </Button>
+            <div className="space-y-8">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <DoorOpen className="h-5 w-5 text-primary" /> Gates & Access
+                  </h3>
+                  <Button onClick={addGate} variant="outline" size="sm" className="gap-2">
+                    <Plus className="h-4 w-4" /> Add Gate
+                  </Button>
+                </div>
+                {gates.length > 0 ? (
+                  <div className="grid gap-4">
+                    {gates.map((gate, idx) => (
+                      <Card key={gate.id} className="border-2 shadow-sm">
+                        <CardContent className="pt-6">
+                          <div className="grid md:grid-cols-12 gap-4 items-end">
+                            <div className="md:col-span-4 space-y-2">
+                              <Label>Gate Style</Label>
+                              <Select value={gate.styleId} onValueChange={(v) => updateGate(gate.id, { styleId: v })}>
+                                <SelectTrigger><SelectValue placeholder="Select Gate" /></SelectTrigger>
+                                <SelectContent>{gateStyles?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                              </Select>
+                            </div>
+                            <div className="md:col-span-3 space-y-2">
+                              <Label>Location</Label>
+                              <Input 
+                                placeholder="e.g. Driveway" 
+                                value={gate.location} 
+                                onChange={(e) => updateGate(gate.id, { location: e.target.value })} 
+                              />
+                            </div>
+                            <div className="md:col-span-3 space-y-2">
+                              <Label>Quantity</Label>
+                              <Input 
+                                type="number" 
+                                value={gate.qty} 
+                                onChange={(e) => updateGate(gate.id, { qty: parseInt(e.target.value) || 0 })} 
+                              />
+                            </div>
+                            <div className="md:col-span-2 flex justify-end">
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeGate(gate.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-2xl bg-secondary/10 text-muted-foreground">
+                    <DoorOpen className="h-10 w-10 opacity-20 mb-4" />
+                    <p className="text-sm font-medium">No gates added yet.</p>
+                  </div>
+                )}
               </div>
-              {gates.length > 0 ? (
-                <div className="grid gap-4">
-                  {gates.map((gate, idx) => (
-                    <Card key={gate.id} className="border-2 shadow-sm">
-                      <CardContent className="pt-6">
-                        <div className="grid md:grid-cols-12 gap-4 items-end">
-                          <div className="md:col-span-4 space-y-2">
-                            <Label>Gate Style</Label>
-                            <Select value={gate.styleId} onValueChange={(v) => updateGate(gate.id, { styleId: v })}>
-                              <SelectTrigger><SelectValue placeholder="Select Gate" /></SelectTrigger>
-                              <SelectContent>{gateStyles?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
-                          <div className="md:col-span-3 space-y-2">
-                            <Label>Location</Label>
-                            <Input 
-                              placeholder="e.g. Driveway" 
-                              value={gate.location} 
-                              onChange={(e) => updateGate(gate.id, { location: e.target.value })} 
-                            />
-                          </div>
-                          <div className="md:col-span-3 space-y-2">
-                            <Label>Quantity</Label>
-                            <Input 
-                              type="number" 
-                              value={gate.qty} 
-                              onChange={(e) => updateGate(gate.id, { qty: parseInt(e.target.value) || 0 })} 
-                            />
-                          </div>
-                          <div className="md:col-span-2 flex justify-end">
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeGate(gate.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+
+              <Separator />
+
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Trash className="h-5 w-5 text-primary" /> Demolition & Removal
+                  </h3>
+                  <Button onClick={addDemo} variant="outline" size="sm" className="gap-2">
+                    <Plus className="h-4 w-4" /> Add Removal
+                  </Button>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-2xl bg-secondary/10 text-muted-foreground">
-                  <DoorOpen className="h-10 w-10 opacity-20 mb-4" />
-                  <p className="text-sm font-medium">No gates added yet.</p>
-                  <Button variant="link" onClick={addGate}>Add your first gate</Button>
-                </div>
-              )}
+                {demos.length > 0 ? (
+                  <div className="grid gap-4">
+                    {demos.map((demo, idx) => (
+                      <Card key={demo.id} className="border-2 shadow-sm">
+                        <CardContent className="pt-6">
+                          <div className="grid md:grid-cols-12 gap-4 items-end">
+                            <div className="md:col-span-4 space-y-2">
+                              <Label>Description</Label>
+                              <Input 
+                                placeholder="e.g. Wood Fence Removal" 
+                                value={demo.description} 
+                                onChange={(e) => updateDemo(demo.id, { description: e.target.value })} 
+                              />
+                            </div>
+                            <div className="md:col-span-3 space-y-2">
+                              <Label>Linear Footage</Label>
+                              <Input 
+                                type="number" 
+                                value={demo.feet} 
+                                onChange={(e) => updateDemo(demo.id, { feet: parseFloat(e.target.value) || 0 })} 
+                              />
+                            </div>
+                            <div className="md:col-span-3 space-y-2">
+                              <Label>Price per Foot ($)</Label>
+                              <Input 
+                                type="number" 
+                                step="0.01"
+                                value={demo.unitPrice} 
+                                onChange={(e) => updateDemo(demo.id, { unitPrice: parseFloat(e.target.value) || 0 })} 
+                              />
+                            </div>
+                            <div className="md:col-span-2 flex justify-end">
+                              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeDemo(demo.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-2xl bg-secondary/10 text-muted-foreground">
+                    <Trash className="h-10 w-10 opacity-20 mb-4" />
+                    <p className="text-sm font-medium">No removal/demo items added.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -550,6 +630,12 @@ function NewEstimateContent() {
                           <span className="font-mono">x{g.qty}</span>
                         </div>
                       ))}
+                      {demos.map((d, i) => (
+                        <div key={i} className="flex justify-between text-sm text-amber-700">
+                          <span>{d.description}</span>
+                          <span className="font-mono">{d.feet} FT</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
@@ -592,6 +678,12 @@ function NewEstimateContent() {
                   <span className="text-muted-foreground">Labor</span>
                   <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
                 </div>
+                {totals.removalTotal > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Removal/Demo</span>
+                    <span className="font-mono">${totals.removalTotal.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Tax ({((settings?.salesTaxRate || 0)).toFixed(1)}%)</span>
                   <span className="font-mono">${totals.tax.toFixed(2)}</span>

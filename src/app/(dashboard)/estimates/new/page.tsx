@@ -24,7 +24,8 @@ import {
   ShieldCheck,
   Trash,
   DoorOpen,
-  ClipboardList
+  ClipboardList,
+  Calculator
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";

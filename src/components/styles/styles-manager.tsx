@@ -1,7 +1,7 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { SAMPLE_STYLES, SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Style, BOMItem, Material } from "@/lib/types";
 import { 
   Card, 
@@ -11,7 +11,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Info, Pencil, Save, X, Trash2, LayoutGrid, Check, Search as SearchIcon, ChevronsUpDown } from "lucide-react";
+import { Plus, Info, Pencil, Save, X, Trash2, LayoutGrid, Check, Search as SearchIcon, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StyleOptimizer } from "@/components/styles/style-optimizer";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,34 +37,34 @@ import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, doc, serverTimestamp } from "firebase/firestore";
 
-// Helper for BOM items with local UI IDs
 interface BOMItemWithId extends BOMItem {
   uiId: string;
 }
 
-/**
- * A dedicated component for picking a material via a nested Dialog.
- */
 function MaterialPicker({ 
+  materials,
   selectedMaterialId, 
   onSelect 
 }: { 
+  materials: Material[];
   selectedMaterialId: string; 
   onSelect: (material: Material) => void 
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const selectedMaterial = SAMPLE_MATERIALS.find(m => m.id === selectedMaterialId);
+  const selectedMaterial = materials.find(m => m.id === selectedMaterialId);
 
   const filteredMaterials = useMemo(() => {
     const s = search.toLowerCase().trim();
-    if (!s) return SAMPLE_MATERIALS;
-    return SAMPLE_MATERIALS.filter(m => 
+    if (!s) return materials;
+    return materials.filter(m => 
       m.name.toLowerCase().includes(s) || 
       m.category.toLowerCase().includes(s)
     );
-  }, [search]);
+  }, [search, materials]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -142,10 +142,12 @@ function MaterialPicker({
 
 function BOMItemRow({ 
   item, 
+  materials,
   updateBOMItem, 
   removeBOMItem 
 }: { 
   item: BOMItemWithId; 
+  materials: Material[];
   updateBOMItem: (uiId: string, updates: Partial<BOMItemWithId>) => void;
   removeBOMItem: (uiId: string) => void;
 }) {
@@ -154,6 +156,7 @@ function BOMItemRow({
       <div className="col-span-6 space-y-1.5">
         <Label className="text-[10px] uppercase font-bold text-muted-foreground">Material</Label>
         <MaterialPicker 
+          materials={materials}
           selectedMaterialId={item.materialId} 
           onSelect={(m) => updateBOMItem(item.uiId, { materialId: m.id, materialName: m.name })} 
         />
@@ -193,11 +196,34 @@ interface StylesManagerProps {
 }
 
 export function StylesManager({ type }: StylesManagerProps) {
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [mounted, setMounted] = useState(false);
-  const [styles, setStyles] = useState<Style[]>(SAMPLE_STYLES);
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   
-  // Editor State
+  const profileRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [firestore, user]);
+  const { data: profile } = useDoc(profileRef);
+  const tenantId = profile?.tenantId || 'tenant_1';
+
+  // Materials for the picker
+  const materialsQuery = useMemoFirebase(() => {
+    return query(collection(firestore, 'tenants', tenantId, 'materials'), orderBy('name'));
+  }, [firestore, tenantId]);
+  const { data: firestoreMaterials } = useCollection<Material>(materialsQuery);
+  const materials = firestoreMaterials || [];
+
+  // Styles collection
+  const stylesCollectionName = type === 'fence' ? 'fences' : type === 'post' ? 'posts' : 'gates';
+  const stylesQuery = useMemoFirebase(() => {
+    return query(
+      collection(firestore, 'tenants', tenantId, 'styles', stylesCollectionName),
+      orderBy('createdAt', 'desc')
+    );
+  }, [firestore, tenantId, stylesCollectionName]);
+  const { data: styles, isLoading } = useCollection<Style>(stylesQuery);
+
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<(Omit<Style, 'bom'> & { bom: BOMItemWithId[] }) | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -207,12 +233,11 @@ export function StylesManager({ type }: StylesManagerProps) {
   }, []);
 
   const filteredStyles = useMemo(() => {
-    return styles.filter((style) => {
-      const matchesType = style.type === type;
+    return (styles || []).filter((style) => {
       const matchesCategory = categoryFilter === "ALL" || style.category.toUpperCase() === categoryFilter.replace('_', ' ');
-      return matchesType && matchesCategory;
+      return matchesCategory;
     });
-  }, [styles, categoryFilter, type]);
+  }, [styles, categoryFilter]);
 
   const pageTitle = {
     fence: "Fence Styles",
@@ -229,25 +254,21 @@ export function StylesManager({ type }: StylesManagerProps) {
   };
 
   const handleDelete = (id: string) => {
-    const styleToDelete = styles.find(s => s.id === id);
-    setStyles(styles.filter(s => s.id !== id));
-    toast({
-      title: "Style Removed",
-      description: `${styleToDelete?.name || 'Style'} has been deleted from your catalog.`,
-      variant: "destructive"
-    });
+    const docRef = doc(firestore, 'tenants', tenantId, 'styles', stylesCollectionName, id);
+    deleteDocumentNonBlocking(docRef);
+    toast({ title: "Style Removed", variant: "destructive" });
   };
 
   const handleAddNew = () => {
     setEditingStyle({
-      id: crypto.randomUUID(),
-      tenantId: 'tenant_1',
+      id: '',
+      tenantId: tenantId,
       name: '',
       description: '',
       type: type,
       category: 'Wood',
       measurementBasis: type === 'fence' ? 'foot' : 'psc',
-      sectionLength: type === 'fence' ? 8 : (type === 'post' ? 8 : undefined),
+      sectionLength: 8,
       bom: [],
       costPerUnit: 0
     });
@@ -288,43 +309,41 @@ export function StylesManager({ type }: StylesManagerProps) {
 
   const handleSaveStyle = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingStyle) return;
+    if (!editingStyle || !editingStyle.name) return;
 
     setIsSaving(true);
     
     let calculatedCost = 0;
     editingStyle.bom.forEach(item => {
-      const mat = SAMPLE_MATERIALS.find(m => m.id === item.materialId);
+      const mat = materials.find(m => m.id === item.materialId);
       if (mat) {
         const qtyWithWaste = item.qtyPerUnit * (1 + (item.wastePct || 0));
         calculatedCost += mat.unitCost * qtyWithWaste;
       }
     });
 
-    const styleToSave: Style = {
+    const dataToSave = {
       ...editingStyle,
       bom: editingStyle.bom.map(({ uiId, ...rest }) => rest), 
-      costPerUnit: calculatedCost > 0 ? calculatedCost : editingStyle.costPerUnit
+      costPerUnit: calculatedCost > 0 ? calculatedCost : editingStyle.costPerUnit,
+      updatedAt: serverTimestamp()
     };
 
-    setTimeout(() => {
-      const isExisting = styles.some(s => s.id === styleToSave.id);
-      if (isExisting) {
-        setStyles(styles.map(s => s.id === styleToSave.id ? styleToSave : s));
-        toast({
-          title: "Style Updated",
-          description: `${styleToSave.name} has been successfully updated.`,
-        });
-      } else {
-        setStyles([...styles, styleToSave]);
-        toast({
-          title: "Style Created",
-          description: `${styleToSave.name} has been added to your catalog.`,
-        });
-      }
-      setIsSaving(false);
-      setIsEditorOpen(false);
-    }, 600);
+    if (editingStyle.id) {
+      const docRef = doc(firestore, 'tenants', tenantId, 'styles', stylesCollectionName, editingStyle.id);
+      updateDocumentNonBlocking(docRef, dataToSave);
+      toast({ title: "Style Updated" });
+    } else {
+      const colRef = collection(firestore, 'tenants', tenantId, 'styles', stylesCollectionName);
+      addDocumentNonBlocking(colRef, {
+        ...dataToSave,
+        createdAt: serverTimestamp()
+      });
+      toast({ title: "Style Created" });
+    }
+
+    setIsSaving(false);
+    setIsEditorOpen(false);
   };
 
   if (!mounted) return null;
@@ -355,7 +374,9 @@ export function StylesManager({ type }: StylesManagerProps) {
         </Tabs>
       </div>
 
-      {filteredStyles.length > 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center py-24"><Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" /></div>
+      ) : filteredStyles.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredStyles.map((style) => (
             <Card key={style.id} className="relative overflow-hidden group border-slate-200">
@@ -406,7 +427,7 @@ export function StylesManager({ type }: StylesManagerProps) {
                 </div>
 
                 <div className="pt-2 flex gap-2">
-                  <StyleOptimizer style={style} materials={SAMPLE_MATERIALS} />
+                  <StyleOptimizer style={style} materials={materials} />
                 </div>
               </CardContent>
             </Card>
@@ -435,7 +456,7 @@ export function StylesManager({ type }: StylesManagerProps) {
           <form onSubmit={handleSaveStyle} className="flex flex-col h-full overflow-hidden">
             <DialogHeader className="p-6 pb-2">
               <DialogTitle>
-                {editingStyle?.id && styles.some(s => s.id === editingStyle.id) ? `Edit ${type}` : `Create New ${type}`}
+                {editingStyle?.id ? `Edit ${type}` : `Create New ${type}`}
               </DialogTitle>
               <DialogDescription>
                 Build your {type} style step-by-step: basics, specifications, and materials.
@@ -554,6 +575,7 @@ export function StylesManager({ type }: StylesManagerProps) {
                         <BOMItemRow 
                           key={item.uiId} 
                           item={item} 
+                          materials={materials}
                           updateBOMItem={updateBOMItem} 
                           removeBOMItem={removeBOMItem} 
                         />
@@ -564,7 +586,7 @@ export function StylesManager({ type }: StylesManagerProps) {
                     <p className="text-[10px] uppercase font-bold text-primary mb-1">Calculated Raw Cost</p>
                     <p className="text-2xl font-black text-primary">
                       ${editingStyle?.bom.reduce((acc, item) => {
-                        const mat = SAMPLE_MATERIALS.find(m => m.id === item.materialId);
+                        const mat = materials.find(m => m.id === item.materialId);
                         if (!mat) return acc;
                         return acc + (mat.unitCost * item.qtyPerUnit * (1 + (item.wastePct || 0)));
                       }, 0).toFixed(2)}

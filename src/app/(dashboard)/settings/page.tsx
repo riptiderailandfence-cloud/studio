@@ -233,7 +233,7 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label>Sales Tax Rate (%)</Label>
+                    <Label>material tax</Label>
                     <Input 
                       type="number" 
                       step="0.01" 

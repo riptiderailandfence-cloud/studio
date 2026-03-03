@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -46,9 +45,10 @@ export default function SettingsPage() {
     return user ? doc(firestore, 'users', user.uid) : null;
   }, [firestore, user]);
   const { data: profile } = useDoc(userRef);
-  const tenantId = profile?.tenantId || 'tenant_1';
+  const tenantId = profile?.tenantId;
 
   const settingsRef = useMemoFirebase(() => {
+    if (!tenantId) return null;
     return doc(firestore, 'tenants', tenantId, 'settings', 'general');
   }, [firestore, tenantId]);
   const { data: settings, isLoading: isSettingsLoading } = useDoc(settingsRef);
@@ -84,6 +84,7 @@ export default function SettingsPage() {
   }, [settings]);
 
   const handleSave = () => {
+    if (!tenantId || !settingsRef) return;
     setLoading(true);
     setDocumentNonBlocking(settingsRef, {
       ...formData,
@@ -110,7 +111,7 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h2>
           <p className="text-muted-foreground">Manage your business profile, templates, and pricing logic.</p>
         </div>
-        <Button onClick={handleSave} disabled={loading} className="gap-2">
+        <Button onClick={handleSave} disabled={loading || !tenantId} className="gap-2">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save Changes
         </Button>

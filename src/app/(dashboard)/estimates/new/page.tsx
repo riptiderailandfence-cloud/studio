@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -51,7 +50,6 @@ interface GateEntry {
 function NewEstimateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const editId = searchParams.get('edit');
   const { user } = useUser();
   const firestore = useFirestore();
   
@@ -59,33 +57,43 @@ function NewEstimateContent() {
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Firestore Data
   const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
   const { data: profile } = useDoc(userRef);
-  const tenantId = profile?.tenantId || 'tenant_1';
+  const tenantId = profile?.tenantId;
 
-  const customersQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'customers'), orderBy('name')), [firestore, tenantId]);
+  const customersQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return query(collection(firestore, 'tenants', tenantId, 'customers'), orderBy('name'));
+  }, [firestore, tenantId]);
   const { data: customers } = useCollection<Customer>(customersQuery);
 
-  // Categorized style queries using flattened paths to fix segment count error
-  const fencesQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'fenceStyles'), orderBy('name')), [firestore, tenantId]);
-  const postsQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'postStyles'), orderBy('name')), [firestore, tenantId]);
-  const gatesQuery = useMemoFirebase(() => query(collection(firestore, 'tenants', tenantId, 'gateStyles'), orderBy('name')), [firestore, tenantId]);
+  const fencesQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return query(collection(firestore, 'tenants', tenantId, 'fenceStyles'), orderBy('name'));
+  }, [firestore, tenantId]);
+  const postsQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return query(collection(firestore, 'tenants', tenantId, 'postStyles'), orderBy('name'));
+  }, [firestore, tenantId]);
+  const gatesQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return query(collection(firestore, 'tenants', tenantId, 'gateStyles'), orderBy('name'));
+  }, [firestore, tenantId]);
   
   const { data: fenceStyles } = useCollection<Style>(fencesQuery);
   const { data: postStyles } = useCollection<Style>(postsQuery);
   const { data: gateStyles } = useCollection<Style>(gatesQuery);
 
-  const settingsRef = useMemoFirebase(() => doc(firestore, 'tenants', tenantId, 'settings', 'general'), [firestore, tenantId]);
+  const settingsRef = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return doc(firestore, 'tenants', tenantId, 'settings', 'general');
+  }, [firestore, tenantId]);
   const { data: settings } = useDoc(settingsRef);
 
-  // Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [jobAddress, setJobAddress] = useState("");
   const [crewNotes, setCrewNotes] = useState("");
   const [sections, setSections] = useState<ProjectSection[]>([{ id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0, location: "" }]);
-  const [enableDemo, setEnableDemo] = useState(false);
-  const [demoFeet, setDemoFeet] = useState<number>(0);
   const [gates, setGates] = useState<GateEntry[]>([]);
   const [overheadPct, setOverheadPct] = useState<number>(0.10); 
   const [profitPct, setProfitPct] = useState<number>(0.30); 
@@ -113,10 +121,6 @@ function NewEstimateContent() {
     if (sections.length > 1) setSections(sections.filter(s => s.id !== id));
     else toast({ title: "Project must have at least one section.", variant: "destructive" });
   };
-
-  const addGate = () => setGates([...gates, { id: crypto.randomUUID(), styleId: "", qty: 1, location: "" }]);
-  const updateGate = (id: string, updates: Partial<GateEntry>) => setGates(gates.map(g => g.id === id ? { ...g, ...updates } : g));
-  const removeGate = (id: string) => setGates(gates.filter(g => g.id !== id));
 
   const totals = useMemo(() => {
     let materialsTotal = 0;
@@ -149,7 +153,7 @@ function NewEstimateContent() {
   }, [sections, gates, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod]);
 
   const handleSaveEstimate = () => {
-    if (!selectedCustomerId || !jobAddress) {
+    if (!tenantId || !selectedCustomerId || !jobAddress) {
       toast({ title: "Missing Information", description: "Please provide client and address details.", variant: "destructive" });
       setStep(1);
       return;
@@ -211,7 +215,7 @@ function NewEstimateContent() {
               Next <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleSaveEstimate} disabled={isSaving}>
+            <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleSaveEstimate} disabled={isSaving || !tenantId}>
               {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Save & Send Quote"}
             </Button>
           )}

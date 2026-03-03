@@ -50,16 +50,15 @@ export default function CRMPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  // Get user profile to find their tenantId
   const userRef = useMemoFirebase(() => {
     return user ? doc(firestore, 'users', user.uid) : null;
   }, [firestore, user]);
 
   const { data: userProfile } = useDoc(userRef);
-  const tenantId = userProfile?.tenantId || 'tenant_1'; 
+  const tenantId = userProfile?.tenantId; 
   
-  // Real-time Firestore Query
   const customersQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
     return query(
       collection(firestore, 'tenants', tenantId, 'customers'),
       orderBy('createdAt', 'desc')
@@ -72,7 +71,6 @@ export default function CRMPage() {
     return firestoreCustomers || [];
   }, [firestoreCustomers]);
 
-  // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Partial<Customer> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -96,6 +94,7 @@ export default function CRMPage() {
   }, [customers, searchTerm, statusFilter]);
 
   const handleAddNew = () => {
+    if (!tenantId) return;
     setEditingCustomer({
       tenantId: tenantId,
       firstName: '',
@@ -110,7 +109,7 @@ export default function CRMPage() {
 
   const handleSaveCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingCustomer || !editingCustomer.firstName || !editingCustomer.lastName || !editingCustomer.email) {
+    if (!editingCustomer || !editingCustomer.firstName || !editingCustomer.lastName || !editingCustomer.email || !tenantId) {
       toast({
         title: "Missing Info",
         description: "Please provide name and email.",
@@ -120,10 +119,8 @@ export default function CRMPage() {
     }
 
     setIsSaving(true);
-    const colRef = collection(firestore, 'tenants', tenantId, 'customers');
     
     if (editingCustomer.id) {
-      // Update existing
       const docRef = doc(firestore, 'tenants', tenantId, 'customers', editingCustomer.id);
       updateDocumentNonBlocking(docRef, {
         ...editingCustomer,
@@ -131,7 +128,7 @@ export default function CRMPage() {
       });
       toast({ title: "Customer Updated" });
     } else {
-      // Add new
+      const colRef = collection(firestore, 'tenants', tenantId, 'customers');
       addDocumentNonBlocking(colRef, {
         ...editingCustomer,
         name: `${editingCustomer.firstName} ${editingCustomer.lastName}`,
@@ -157,6 +154,7 @@ export default function CRMPage() {
   };
 
   const handleDelete = (id: string) => {
+    if (!tenantId) return;
     const docRef = doc(firestore, 'tenants', tenantId, 'customers', id);
     deleteDocumentNonBlocking(docRef);
     toast({
@@ -174,7 +172,7 @@ export default function CRMPage() {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Customers</h2>
           <p className="text-muted-foreground">Manage your leads and existing customers.</p>
         </div>
-        <Button className="gap-2" onClick={handleAddNew}>
+        <Button className="gap-2" onClick={handleAddNew} disabled={!tenantId}>
           <Plus className="h-4 w-4" />
           Add Customer
         </Button>

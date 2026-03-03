@@ -48,9 +48,10 @@ export default function MaterialsPage() {
   }, [firestore, user]);
 
   const { data: profile } = useDoc(userRef);
-  const tenantId = profile?.tenantId || 'tenant_1';
+  const tenantId = profile?.tenantId;
 
   const materialsQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
     return query(
       collection(firestore, 'tenants', tenantId, 'materials'),
       orderBy('createdAt', 'desc')
@@ -89,6 +90,7 @@ export default function MaterialsPage() {
   };
 
   const handleAddNew = () => {
+    if (!tenantId) return;
     setEditingMaterial({
       tenantId: tenantId,
       name: '',
@@ -102,7 +104,7 @@ export default function MaterialsPage() {
 
   const handleSaveMaterial = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingMaterial || !editingMaterial.name) return;
+    if (!editingMaterial || !editingMaterial.name || !tenantId) return;
 
     setIsSaving(true);
     
@@ -128,6 +130,7 @@ export default function MaterialsPage() {
   };
 
   const handleDelete = (id: string) => {
+    if (!tenantId) return;
     const docRef = doc(firestore, 'tenants', tenantId, 'materials', id);
     deleteDocumentNonBlocking(docRef);
     toast({
@@ -150,7 +153,7 @@ export default function MaterialsPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !tenantId) return;
 
     setIsUploading(true);
     const reader = new FileReader();
@@ -196,7 +199,7 @@ export default function MaterialsPage() {
         <div className="flex items-center gap-2">
           <Dialog open={isBulkUploadOpen} onOpenChange={setIsBulkUploadOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" disabled={!tenantId}>
                 <Upload className="h-4 w-4" />
                 Bulk Upload
               </Button>
@@ -244,7 +247,7 @@ export default function MaterialsPage() {
             </DialogContent>
           </Dialog>
 
-          <Button className="gap-2" onClick={handleAddNew}>
+          <Button className="gap-2" onClick={handleAddNew} disabled={!tenantId}>
             <Plus className="h-4 w-4" />
             Add Material
           </Button>

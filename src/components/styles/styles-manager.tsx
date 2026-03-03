@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -205,18 +204,19 @@ export function StylesManager({ type }: StylesManagerProps) {
     return user ? doc(firestore, 'users', user.uid) : null;
   }, [firestore, user]);
   const { data: profile } = useDoc(profileRef);
-  const tenantId = profile?.tenantId || 'tenant_1';
+  const tenantId = profile?.tenantId;
 
   const materialsQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
     return query(collection(firestore, 'tenants', tenantId, 'materials'), orderBy('name'));
   }, [firestore, tenantId]);
   const { data: firestoreMaterials } = useCollection<Material>(materialsQuery);
   const materials = firestoreMaterials || [];
 
-  // Correct collection paths based on type to ensure odd-numbered path segments
   const stylesCollectionName = type === 'fence' ? 'fenceStyles' : type === 'post' ? 'postStyles' : 'gateStyles';
   
   const stylesQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
     return query(
       collection(firestore, 'tenants', tenantId, stylesCollectionName),
       orderBy('createdAt', 'desc')
@@ -255,12 +255,14 @@ export function StylesManager({ type }: StylesManagerProps) {
   };
 
   const handleDelete = (id: string) => {
+    if (!tenantId) return;
     const docRef = doc(firestore, 'tenants', tenantId, stylesCollectionName, id);
     deleteDocumentNonBlocking(docRef);
     toast({ title: "Style Removed", variant: "destructive" });
   };
 
   const handleAddNew = () => {
+    if (!tenantId) return;
     setEditingStyle({
       id: '',
       tenantId: tenantId,
@@ -310,7 +312,7 @@ export function StylesManager({ type }: StylesManagerProps) {
 
   const handleSaveStyle = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingStyle || !editingStyle.name) return;
+    if (!editingStyle || !editingStyle.name || !tenantId) return;
 
     setIsSaving(true);
     
@@ -357,7 +359,7 @@ export function StylesManager({ type }: StylesManagerProps) {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">{pageTitle}</h2>
           <p className="text-muted-foreground">Define your core {type} styles with precise Bill of Materials.</p>
         </div>
-        <Button className="gap-2" onClick={handleAddNew}>
+        <Button className="gap-2" onClick={handleAddNew} disabled={!tenantId}>
           <Plus className="h-4 w-4" />
           Create New {type.charAt(0).toUpperCase() + type.slice(1)}
         </Button>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -41,9 +40,10 @@ export default function EstimatesPage() {
     return user ? doc(firestore, 'users', user.uid) : null;
   }, [firestore, user]);
   const { data: profile } = useDoc(profileRef);
-  const tenantId = profile?.tenantId || 'tenant_1';
+  const tenantId = profile?.tenantId;
 
   const estimatesQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
     return query(
       collection(firestore, 'tenants', tenantId, 'estimates'),
       orderBy('createdAt', 'desc')
@@ -88,7 +88,7 @@ export default function EstimatesPage() {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Estimates</h2>
           <p className="text-muted-foreground">Draft, send, and track status of project quotes.</p>
         </div>
-        <Button asChild className="gap-2">
+        <Button asChild className="gap-2" disabled={!tenantId}>
           <Link href="/estimates/new">
             <Plus className="h-4 w-4" />
             New Estimate

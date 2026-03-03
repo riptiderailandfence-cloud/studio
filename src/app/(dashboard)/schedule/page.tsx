@@ -15,7 +15,8 @@ import {
   MoreVertical,
   Link2,
   ExternalLink,
-  CalendarCheck
+  CalendarCheck,
+  Loader2
 } from "lucide-react";
 import { SAMPLE_EVENTS, SAMPLE_CUSTOMERS } from "@/lib/mock-data";
 import { ScheduleEvent } from "@/lib/types";
@@ -40,20 +41,29 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
 
 export default function SchedulePage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [events, setEvents] = useState<ScheduleEvent[]>(SAMPLE_EVENTS);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  const profileRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [firestore, user]);
+  const { data: profile } = useDoc(profileRef);
+  const tenantId = profile?.tenantId;
+
   useEffect(() => {
     setMounted(true);
     setDate(new Date());
   }, []);
 
-  // New Event Form State
   const [newEvent, setNewEvent] = useState<Partial<ScheduleEvent>>({
     type: 'estimate',
     date: new Date().toISOString()
@@ -126,7 +136,7 @@ export default function SchedulePage() {
         </div>
         <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" disabled={!tenantId}>
               <Plus className="h-4 w-4" />
               Add Event
             </Button>
@@ -201,7 +211,7 @@ export default function SchedulePage() {
                 <p className="text-sm text-muted-foreground">Keep your field schedule in sync across all your devices.</p>
               </div>
             </div>
-            <Button onClick={handleConnectGoogle} variant="outline" className="gap-2 bg-background">
+            <Button onClick={handleConnectGoogle} variant="outline" className="gap-2 bg-background" disabled={!tenantId}>
               <Link2 className="h-4 w-4" />
               Connect Account
             </Button>
@@ -291,7 +301,7 @@ export default function SchedulePage() {
                 <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl text-muted-foreground">
                   <CalendarDays className="h-10 w-10 opacity-20 mb-4" />
                   <p>Nothing scheduled for this day.</p>
-                  <Button variant="link" onClick={() => setIsAddEventOpen(true)}>Schedule something</Button>
+                  <Button variant="link" onClick={() => setIsAddEventOpen(true)} disabled={!tenantId}>Schedule something</Button>
                 </div>
               )}
             </CardContent>

@@ -31,9 +31,10 @@ export default function CrewPage() {
   }, [firestore, user]);
 
   const { data: profile } = useDoc(profileRef);
-  const tenantId = profile?.tenantId || 'tenant_1';
+  const tenantId = profile?.tenantId;
 
   const crewQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
     return query(
       collection(firestore, 'tenants', tenantId, 'crewMembers'),
       orderBy('createdAt', 'desc')
@@ -56,6 +57,7 @@ export default function CrewPage() {
   };
 
   const handleAddNew = () => {
+    if (!tenantId) return;
     setEditingMember({
       tenantId: tenantId,
       name: '',
@@ -68,7 +70,7 @@ export default function CrewPage() {
 
   const handleSaveMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingMember || !editingMember.name) return;
+    if (!editingMember || !editingMember.name || !tenantId) return;
 
     setIsSaving(true);
     
@@ -94,6 +96,7 @@ export default function CrewPage() {
   };
 
   const handleDelete = (id: string) => {
+    if (!tenantId) return;
     const docRef = doc(firestore, 'tenants', tenantId, 'crewMembers', id);
     deleteDocumentNonBlocking(docRef);
     toast({ title: "Member Removed", variant: "destructive" });
@@ -108,7 +111,7 @@ export default function CrewPage() {
           <h2 className="text-2xl font-bold tracking-tight">Crew Management</h2>
           <p className="text-muted-foreground">Manage your field teams and their labor rates.</p>
         </div>
-        <Button className="gap-2" onClick={handleAddNew}>
+        <Button className="gap-2" onClick={handleAddNew} disabled={!tenantId}>
           <Plus className="h-4 w-4" />
           Add Crew Member
         </Button>

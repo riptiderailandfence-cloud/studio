@@ -21,14 +21,19 @@ import {
   Loader2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useUser, useFirestore, useDoc, updateDocumentNonBlocking, setDocumentNonBlocking, initiateSignOut, useAuth } from "@/firebase";
+import { useUser, useFirestore, useDoc, updateDocumentNonBlocking, setDocumentNonBlocking, initiateSignOut, useAuth, useMemoFirebase } from "@/firebase";
 import { doc, serverTimestamp } from "firebase/firestore";
 
 export default function ProfilePage() {
   const { user } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
-  const { data: profile, isLoading: isProfileLoading } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
+  
+  const profileRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [firestore, user]);
+
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef);
   
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({

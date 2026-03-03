@@ -43,8 +43,11 @@ export default function MaterialsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   
-  // Resolve Tenant context
-  const { data: profile } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
+  const userRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [firestore, user]);
+
+  const { data: profile } = useDoc(userRef);
   const tenantId = profile?.tenantId || 'tenant_1';
 
   const materialsQuery = useMemoFirebase(() => {
@@ -56,12 +59,10 @@ export default function MaterialsPage() {
 
   const { data: materials, isLoading: isFirestoreLoading } = useCollection<Material>(materialsQuery);
 
-  // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Partial<Material> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Bulk Upload State
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

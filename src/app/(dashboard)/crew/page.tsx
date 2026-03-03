@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, doc, serverTimestamp } from "firebase/firestore";
 
 export default function CrewPage() {
@@ -26,7 +26,11 @@ export default function CrewPage() {
   const firestore = useFirestore();
   const [mounted, setMounted] = useState(false);
   
-  const { data: profile } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
+  const profileRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [firestore, user]);
+
+  const { data: profile } = useDoc(profileRef);
   const tenantId = profile?.tenantId || 'tenant_1';
 
   const crewQuery = useMemoFirebase(() => {

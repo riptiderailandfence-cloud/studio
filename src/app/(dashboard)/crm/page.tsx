@@ -49,11 +49,16 @@ export default function CRMPage() {
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  
-  // Resolve Tenant ID from user profile
-  const { data: profile } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
-  const tenantId = profile?.tenantId || 'tenant_1'; 
 
+  // Get user profile to find their tenantId
+  const userRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc(userRef);
+  const tenantId = userProfile?.tenantId || 'tenant_1'; 
+  
+  // Real-time Firestore Query
   const customersQuery = useMemoFirebase(() => {
     return query(
       collection(firestore, 'tenants', tenantId, 'customers'),
@@ -61,7 +66,11 @@ export default function CRMPage() {
     );
   }, [firestore, tenantId]);
 
-  const { data: customers, isLoading: isFirestoreLoading } = useCollection<Customer>(customersQuery);
+  const { data: firestoreCustomers, isLoading: isFirestoreLoading } = useCollection<Customer>(customersQuery);
+
+  const customers = useMemo(() => {
+    return firestoreCustomers || [];
+  }, [firestoreCustomers]);
 
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -111,8 +120,10 @@ export default function CRMPage() {
     }
 
     setIsSaving(true);
+    const colRef = collection(firestore, 'tenants', tenantId, 'customers');
     
     if (editingCustomer.id) {
+      // Update existing
       const docRef = doc(firestore, 'tenants', tenantId, 'customers', editingCustomer.id);
       updateDocumentNonBlocking(docRef, {
         ...editingCustomer,
@@ -120,10 +131,11 @@ export default function CRMPage() {
       });
       toast({ title: "Customer Updated" });
     } else {
-      const colRef = collection(firestore, 'tenants', tenantId, 'customers');
+      // Add new
       addDocumentNonBlocking(colRef, {
         ...editingCustomer,
         name: `${editingCustomer.firstName} ${editingCustomer.lastName}`,
+        tenantId: tenantId,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -202,7 +214,7 @@ export default function CRMPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isFirestoreLoading ? (
+            {isFirestoreLoading && customers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />

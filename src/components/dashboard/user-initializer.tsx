@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useUser, useFirestore, useDoc, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, serverTimestamp } from 'firebase/firestore';
 
 /**
@@ -11,16 +11,21 @@ import { doc, serverTimestamp } from 'firebase/firestore';
 export function UserInitializer({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { data: profile, isLoading: isProfileLoading } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
+  
+  const userRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [firestore, user]);
+
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userRef);
   const [hasAttemptedInit, setHasAttemptedInit] = useState(false);
 
   useEffect(() => {
     // Only attempt to initialize once per session if profile is missing
     if (!isUserLoading && user && !isProfileLoading && !profile && !hasAttemptedInit) {
       setHasAttemptedInit(true);
-      const userRef = doc(firestore, 'users', user.uid);
+      const docRef = doc(firestore, 'users', user.uid);
       
-      setDocumentNonBlocking(userRef, {
+      setDocumentNonBlocking(docRef, {
         id: user.uid,
         tenantId: 'tenant_1', // Default tenant for prototype mode
         email: user.email || '',

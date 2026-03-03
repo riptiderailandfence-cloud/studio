@@ -25,7 +25,13 @@ import {
   Trash,
   DoorOpen,
   ClipboardList,
-  Calculator
+  Calculator,
+  Box,
+  Wrench,
+  Percent,
+  Receipt,
+  Layers,
+  Layout
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -34,6 +40,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, doc, serverTimestamp } from "firebase/firestore";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ProjectSection {
   id: string;
@@ -114,9 +122,12 @@ function NewEstimateContent() {
   const [sections, setSections] = useState<ProjectSection[]>([{ id: crypto.randomUUID(), fenceStyleId: "", postStyleId: "", feet: 0, location: "" }]);
   const [gates, setGates] = useState<GateEntry[]>([]);
   const [demos, setDemos] = useState<DemoEntry[]>([]);
+  
+  // Financial State
   const [overheadPct, setOverheadPct] = useState<number>(0.10); 
   const [profitPct, setProfitPct] = useState<number>(0.30); 
   const [pricingMethod, setPricingMethod] = useState<'markup' | 'margin'>('markup');
+  const [manualManHours, setManualManHours] = useState<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -149,21 +160,40 @@ function NewEstimateContent() {
   const updateDemo = (id: string, updates: Partial<DemoEntry>) => setDemos(demos.map(d => d.id === id ? { ...d, ...updates } : d));
   const removeDemo = (id: string) => setDemos(demos.filter(d => d.id !== id));
 
-  const calculateBOMCost = (bom: Style['bom'], quantityMultiplier: number): number => {
-    if (!bom || !materialsMap || quantityMultiplier === 0) return 0;
-    return bom.reduce((acc, bomItem) => {
+  const calculateBOMCosts = (bom: Style['bom'], quantityMultiplier: number) => {
+    if (!bom || !materialsMap || quantityMultiplier === 0) return { total: 0, items: [] as any[] };
+    
+    const items = bom.map(bomItem => {
       const material = materialsMap.get(bomItem.materialId);
-      if (!material) return acc;
-      const costPerUnit = material.unitCost;
+      if (!material) return null;
       const qtyWithWaste = bomItem.qtyPerUnit * (1 + (bomItem.wastePct || 0));
-      return acc + (costPerUnit * qtyWithWaste * quantityMultiplier);
-    }, 0);
+      const totalQty = qtyWithWaste * quantityMultiplier;
+      const cost = material.unitCost * totalQty;
+      return { 
+        materialName: bomItem.materialName, 
+        qtyPerUnit: bomItem.qtyPerUnit, 
+        totalQty, 
+        unit: material.unit, 
+        cost 
+      };
+    }).filter(Boolean);
+
+    const total = items.reduce((acc, i) => acc + (i?.cost || 0), 0);
+    return { total, items };
   };
 
   const totals = useMemo(() => {
-    let materialsTotal = 0;
+    let fenceMaterialsCost = 0;
+    let postMaterialsCost = 0;
+    let gateMaterialsCost = 0;
     let totalFeetCount = 0;
+    let totalSectionsCount = 0;
+    let totalPostsCount = 0;
     
+    const fenceItems: any[] = [];
+    const postItems: any[] = [];
+    const gateItems: any[] = [];
+
     const sOverhead = isNaN(overheadPct) ? 0 : overheadPct;
     const sProfit = isNaN(profitPct) ? 0 : profitPct;
     const salesTaxRate = (settings?.salesTaxRate || 0) / 100; 
@@ -179,22 +209,31 @@ function NewEstimateContent() {
       } else if (fStyle?.measurementBasis === 'section') {
         const sectionLength = fStyle.sectionLength || 8;
         fenceStyleQuantity = feet > 0 ? Math.ceil(feet / sectionLength) : 0;
+        totalSectionsCount += fenceStyleQuantity;
       }
-      materialsTotal += calculateBOMCost(fStyle?.bom || [], fenceStyleQuantity);
+      
+      const fCalculated = calculateBOMCosts(fStyle?.bom || [], fenceStyleQuantity);
+      fenceMaterialsCost += fCalculated.total;
+      fenceItems.push(...fCalculated.items);
 
       const pSpacing = pStyle?.sectionLength || 8;
       const postQty = feet > 0 ? Math.ceil(feet / pSpacing) + 1 : 0;
-      materialsTotal += calculateBOMCost(pStyle?.bom || [], postQty);
+      totalPostsCount += postQty;
+      
+      const pCalculated = calculateBOMCosts(pStyle?.bom || [], postQty);
+      postMaterialsCost += pCalculated.total;
+      postItems.push(...pCalculated.items);
       
       totalFeetCount += feet;
     });
 
-    const gateCost = gates.reduce((acc, g) => {
+    gates.forEach(g => {
       const style = gateStyles?.find(gs => gs.id === g.styleId);
       const gateQty = isNaN(g.qty) ? 0 : g.qty;
-      return acc + calculateBOMCost(style?.bom || [], gateQty);
-    }, 0);
-    materialsTotal += gateCost;
+      const gCalculated = calculateBOMCosts(style?.bom || [], gateQty);
+      gateMaterialsCost += gCalculated.total;
+      gateItems.push(...gCalculated.items);
+    });
 
     const removalTotal = demos.reduce((acc, d) => {
       const demoFeet = isNaN(d.feet) ? 0 : d.feet;
@@ -202,25 +241,47 @@ function NewEstimateContent() {
       return acc + (demoFeet * demoPrice);
     }, 0);
 
+    const materialsTotal = fenceMaterialsCost + postMaterialsCost + gateMaterialsCost;
+
     const crewSize = settings?.crewSize || 2;
     const avgHourlyRate = settings?.avgHourlyRate || 35;
     const dailyProduction = settings?.dailyProduction || 100;
 
-    const hourlyCrewCost = crewSize * avgHourlyRate;
-    const dailyCrewCost = hourlyCrewCost * 8; 
-    const laborCostPerFoot = dailyProduction > 0 ? dailyCrewCost / dailyProduction : 0;
-
-    const laborCost = totalFeetCount * laborCostPerFoot; 
+    const calculatedManHours = dailyProduction > 0 ? (totalFeetCount / dailyProduction) * 8 * crewSize : 0;
+    const activeManHours = manualManHours !== null ? manualManHours : calculatedManHours;
+    
+    const laborCost = activeManHours * avgHourlyRate;
     
     const baseCost = (materialsTotal + laborCost + removalTotal) * (1 + sOverhead);
+    const materialTax = materialsTotal * salesTaxRate;
     
     let sellTotal = pricingMethod === 'margin' ? (1 - sProfit <= 0 ? baseCost : baseCost / (1 - sProfit)) : baseCost * (1 + sProfit);
     const tax = sellTotal * salesTaxRate; 
     const finalTotal = sellTotal + tax;
     const deposit = finalTotal * ((settings?.depositPct || 0.5)); 
 
-    return { totalFeetCount, materialsTotal, laborCost, removalTotal, sellTotal, tax, finalTotal, deposit };
-  }, [sections, gates, demos, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap]);
+    return { 
+      totalFeetCount, 
+      totalSectionsCount,
+      totalPostsCount,
+      fenceMaterialsCost,
+      postMaterialsCost,
+      gateMaterialsCost,
+      materialsTotal, 
+      laborCost, 
+      materialTax,
+      removalTotal, 
+      sellTotal, 
+      tax, 
+      finalTotal, 
+      deposit,
+      activeManHours,
+      avgHourlyRate,
+      fenceItems,
+      postItems,
+      gateItems
+    };
+  }, [sections, gates, demos, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap, manualManHours]);
 
   const handleSaveEstimate = () => {
     if (!tenantId || !selectedCustomerId || !jobAddress) {
@@ -272,12 +333,12 @@ function NewEstimateContent() {
   if (!mounted) return null;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-3xl font-black tracking-tight text-slate-900">New Estimate</h2>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">Estimate Builder</h2>
           <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((i) => (
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className={`h-2 w-12 rounded-full transition-colors ${step >= i ? 'bg-primary' : 'bg-secondary'}`} />
             ))}
           </div>
@@ -287,9 +348,9 @@ function NewEstimateContent() {
           <Button variant="outline" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1 || isSaving}>
             <ChevronLeft className="h-4 w-4 mr-2" /> Back
           </Button>
-          {step < 5 ? (
+          {step < 6 ? (
             <Button onClick={() => setStep(step + 1)}>
-              Next <ArrowRight className="h-4 w-4 ml-2" />
+              {step === 5 ? "Review Quote" : "Next"} <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
             <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleSaveEstimate} disabled={isSaving || !tenantId}>
@@ -299,8 +360,8 @@ function NewEstimateContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-6">
           {step === 1 && (
             <Card className="border-2 shadow-sm">
               <CardHeader>
@@ -549,6 +610,183 @@ function NewEstimateContent() {
           )}
 
           {step === 5 && (
+            <div className="grid lg:grid-cols-12 gap-8">
+              {/* Calculations Worksheet Left */}
+              <div className="lg:col-span-5 space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-slate-50 border rounded-xl p-4">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Linear Feet</p>
+                    <p className="text-3xl font-black">{totals.totalFeetCount}</p>
+                  </div>
+                  <div className="bg-slate-50 border rounded-xl p-4">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Sections</p>
+                    <p className="text-3xl font-black">{totals.totalSectionsCount}</p>
+                  </div>
+                  <div className="bg-slate-50 border rounded-xl p-4">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Posts</p>
+                    <p className="text-3xl font-black">{totals.totalPostsCount}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="flex items-center gap-2 text-slate-600"><Box className="h-4 w-4" /> Fence Materials</span>
+                    <span className="font-bold">${totals.fenceMaterialsCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="flex items-center gap-2 text-slate-600"><Receipt className="h-4 w-4" /> Post Materials</span>
+                    <span className="font-bold">${totals.postMaterialsCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="flex items-center gap-2 text-slate-600"><Layers className="h-4 w-4" /> Gate Materials</span>
+                    <span className="font-bold">${totals.gateMaterialsCost.toFixed(2)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-between items-center text-md font-black">
+                    <span className="flex items-center gap-2 text-slate-900"><Layout className="h-4 w-4" /> Total Materials</span>
+                    <span>${totals.materialsTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-bold text-slate-900">Material Tax</p>
+                      <p className="text-[10px] text-muted-foreground">{(settings?.salesTaxRate || 0)}% on materials</p>
+                    </div>
+                    <span className="text-xl font-black">${totals.materialTax.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-slate-600"><Wrench className="h-4 w-4" /> Labor Cost</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold">$</span>
+                      <Input 
+                        className="pl-7 h-12 text-lg font-black bg-slate-50" 
+                        value={totals.laborCost.toFixed(2)} 
+                        readOnly 
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">${totals.avgHourlyRate}/hr × {totals.activeManHours.toFixed(2)} hrs</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-slate-600">Total Installation Man Hours</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        className="h-12 text-lg font-black pr-10" 
+                        value={totals.activeManHours.toFixed(2)}
+                        onChange={(e) => setManualManHours(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">hrs</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 text-slate-600"><Percent className="h-4 w-4" /> Profit Margin</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number"
+                        step="1"
+                        className="h-12 text-lg font-black pr-10" 
+                        value={(profitPct * 100).toFixed(0)}
+                        onChange={(e) => setProfitPct((parseFloat(e.target.value) || 0) / 100)}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900 text-white rounded-xl p-6 mt-8">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-black uppercase tracking-widest opacity-60">Subtotal (Materials + Tax + Labor)</span>
+                    <span className="text-2xl font-black font-mono">${totals.sellTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Material Details Right */}
+              <div className="lg:col-span-7 border rounded-2xl overflow-hidden bg-white">
+                <ScrollArea className="h-[700px]">
+                  <div className="p-8 space-y-10">
+                    <div className="space-y-6">
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Fence Materials</h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent border-b-2">
+                            <TableHead className="font-bold text-[10px] uppercase">Material</TableHead>
+                            <TableHead className="text-right font-bold text-[10px] uppercase">Per Section</TableHead>
+                            <TableHead className="text-right font-bold text-[10px] uppercase">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {totals.fenceItems.map((item, i) => (
+                            <TableRow key={i} className="border-b border-slate-50">
+                              <TableCell className="text-sm font-medium text-slate-700">{item.materialName}</TableCell>
+                              <TableCell className="text-right text-sm text-slate-500">{item.qtyPerUnit} {item.unit}</TableCell>
+                              <TableCell className="text-right font-bold text-slate-900">{item.totalQty.toFixed(1)} {item.unit}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="space-y-6">
+                      <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Post Materials</h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent border-b-2">
+                            <TableHead className="font-bold text-[10px] uppercase">Material</TableHead>
+                            <TableHead className="text-right font-bold text-[10px] uppercase">Per Post</TableHead>
+                            <TableHead className="text-right font-bold text-[10px] uppercase">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {totals.postItems.map((item, i) => (
+                            <TableRow key={i} className="border-b border-slate-50">
+                              <TableCell className="text-sm font-medium text-slate-700">{item.materialName}</TableCell>
+                              <TableCell className="text-right text-sm text-slate-500">{item.qtyPerUnit} {item.unit}</TableCell>
+                              <TableCell className="text-right font-bold text-slate-900">{item.totalQty.toFixed(1)} {item.unit}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {totals.gateItems.length > 0 && (
+                      <div className="space-y-6">
+                        <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs">Gate Materials</h3>
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="hover:bg-transparent border-b-2">
+                              <TableHead className="font-bold text-[10px] uppercase">Material</TableHead>
+                              <TableHead className="text-right font-bold text-[10px] uppercase">Total Qty</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {totals.gateItems.map((item, i) => (
+                              <TableRow key={i} className="border-b border-slate-50">
+                                <TableCell className="text-sm font-medium text-slate-700">{item.materialName}</TableCell>
+                                <TableCell className="text-right font-bold text-slate-900">{item.totalQty.toFixed(1)} {item.unit}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+          )}
+
+          {step === 6 && (
             <div className="space-y-6">
               <Card className="border-2 shadow-sm">
                 <CardHeader>
@@ -651,7 +889,7 @@ function NewEstimateContent() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="lg:col-span-4 space-y-6">
           <Card className="sticky top-8 border-2 shadow-lg overflow-hidden">
             <CardHeader className="bg-primary text-primary-foreground p-6">
               <CardTitle className="text-sm font-bold uppercase opacity-80">Estimate Summary</CardTitle>
@@ -697,7 +935,7 @@ function NewEstimateContent() {
               </div>
             </CardContent>
             <CardFooter className="p-6 pt-0">
-              <Button className="w-full h-12 gap-2" variant={step === 5 ? "default" : "outline"} onClick={() => setStep(5)}>
+              <Button className="w-full h-12 gap-2" variant={step === 6 ? "default" : "outline"} onClick={() => setStep(6)}>
                 <Eye className="h-4 w-4" /> Final Preview
               </Button>
             </CardFooter>

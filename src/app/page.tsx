@@ -2,12 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Ruler, ClipboardCheck, Users, ShieldCheck, LogOut, LayoutDashboard } from "lucide-react";
 import { useUser, useAuth, initiateGoogleSignIn, initiateSignOut } from "@/firebase";
 
 export default function HomePage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const router = useRouter();
 
   const handleSignIn = () => {
     initiateGoogleSignIn(auth);
@@ -15,6 +17,15 @@ export default function HomePage() {
 
   const handleSignOut = () => {
     initiateSignOut(auth);
+  };
+
+  const handleProtectedNavigation = (path: string) => {
+    if (user) {
+      router.push(path);
+    } else {
+      // If user is not logged in, we initiate sign in instead of navigating
+      handleSignIn();
+    }
   };
 
   return (
@@ -34,11 +45,9 @@ export default function HomePage() {
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </Button>
-              <Button size="sm" asChild className="gap-2">
-                <Link href="/dashboard">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Link>
+              <Button size="sm" onClick={() => router.push('/dashboard')} className="gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
               </Button>
             </div>
           ) : (
@@ -64,8 +73,8 @@ export default function HomePage() {
                 </svg>
                 Sign in with Google
               </Button>
-              <Button asChild className="hidden sm:inline-flex">
-                <Link href="/dashboard">Get Started</Link>
+              <Button onClick={() => handleProtectedNavigation('/dashboard')} className="hidden sm:inline-flex">
+                Get Started
               </Button>
             </div>
           )}
@@ -84,8 +93,12 @@ export default function HomePage() {
                 </p>
               </div>
               <div className="space-x-4">
-                <Button size="lg" className="px-8" asChild><Link href="/dashboard">Enter Dashboard</Link></Button>
-                <Button size="lg" variant="outline" className="px-8" asChild><Link href="/portal/sample-token">View Client Portal Demo</Link></Button>
+                <Button size="lg" className="px-8" onClick={() => handleProtectedNavigation('/dashboard')}>
+                  Enter Dashboard
+                </Button>
+                <Button size="lg" variant="outline" className="px-8" onClick={() => handleProtectedNavigation('/portal/sample-token')}>
+                  View Client Portal Demo
+                </Button>
               </div>
             </div>
           </div>

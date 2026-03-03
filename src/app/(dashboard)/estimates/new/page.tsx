@@ -22,7 +22,9 @@ import {
   MessageSquare,
   FileText,
   ShieldCheck,
-  Trash
+  Trash,
+  DoorOpen,
+  ClipboardList
 } from "lucide-react";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
@@ -122,6 +124,10 @@ function NewEstimateContent() {
     else toast({ title: "Project must have at least one section.", variant: "destructive" });
   };
 
+  const addGate = () => setGates([...gates, { id: crypto.randomUUID(), styleId: "", qty: 1, location: "" }]);
+  const updateGate = (id: string, updates: Partial<GateEntry>) => setGates(gates.map(g => g.id === id ? { ...g, ...updates } : g));
+  const removeGate = (id: string) => setGates(gates.filter(g => g.id !== id));
+
   const totals = useMemo(() => {
     let materialsTotal = 0;
     let totalFeetCount = 0;
@@ -142,7 +148,7 @@ function NewEstimateContent() {
     const gateCost = gates.reduce((acc, g) => acc + (gateStyles?.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * (g.qty || 0), 0);
     materialsTotal += gateCost;
 
-    const laborCost = totalFeetCount * 12;
+    const laborCost = totalFeetCount * 12; // Basic labor estimate multiplier
     const baseCost = (materialsTotal + laborCost) * (1 + sOverhead);
     
     let sellTotal = pricingMethod === 'margin' ? (1 - sProfit <= 0 ? baseCost : baseCost / (1 - sProfit)) : baseCost * (1 + sProfit);
@@ -163,12 +169,18 @@ function NewEstimateContent() {
     const estimateData: any = {
       tenantId,
       customerId: selectedCustomerId,
-      customerSnapshot: { name: selectedCustomer?.name, email: selectedCustomer?.email },
+      customerSnapshot: { 
+        name: selectedCustomer?.name, 
+        email: selectedCustomer?.email,
+        phone: selectedCustomer?.phone,
+        address: selectedCustomer?.address
+      },
       jobAddress,
       sections,
       gates,
       crewNotes,
       pricingMethod,
+      pricingValue: profitPct,
       totals: {
         materials: totals.materialsTotal,
         labor: totals.laborCost,
@@ -178,6 +190,7 @@ function NewEstimateContent() {
         depositRequired: totals.deposit
       },
       status: 'sent',
+      clientAccessToken: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -227,7 +240,10 @@ function NewEstimateContent() {
           {step === 1 && (
             <Card className="border-2 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Client Information</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Users className="h-5 w-5" /> Client Information
+                </CardTitle>
+                <CardDescription>Select an existing customer or create one in the CRM first.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
@@ -246,7 +262,12 @@ function NewEstimateContent() {
                 <Separator />
                 <div className="space-y-2">
                   <Label>Job Site Address</Label>
-                  <Input className="h-12" placeholder="123 Project Lane, City, State" value={jobAddress} onChange={(e) => setJobAddress(e.target.value)} />
+                  <Input 
+                    className="h-12" 
+                    placeholder="123 Project Lane, City, State" 
+                    value={jobAddress} 
+                    onChange={(e) => setJobAddress(e.target.value)} 
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -255,40 +276,56 @@ function NewEstimateContent() {
           {step === 2 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">Project Sections</h3>
-                <Button onClick={addSection} variant="outline" size="sm" className="gap-2"><Plus className="h-4 w-4" /> Add Segment</Button>
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Hammer className="h-5 w-5 text-primary" /> Project Sections
+                </h3>
+                <Button onClick={addSection} variant="outline" size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" /> Add Segment
+                </Button>
               </div>
               {sections.map((sec, idx) => (
                 <Card key={sec.id} className="border-2 shadow-sm">
                   <CardHeader className="flex flex-row items-center justify-between py-4 bg-secondary/20">
                     <CardTitle className="text-sm font-bold uppercase tracking-wider">Segment #{idx + 1}</CardTitle>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeSection(sec.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeSection(sec.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </CardHeader>
                   <CardContent className="pt-6 space-y-6">
                     <div className="grid md:grid-cols-12 gap-6">
                       <div className="md:col-span-4 space-y-2">
-                        <Label>Location</Label>
-                        <Input value={sec.location} onChange={(e) => updateSection(sec.id, { location: e.target.value })} />
+                        <Label>Location Name</Label>
+                        <Input 
+                          placeholder="e.g. Back Yard" 
+                          value={sec.location} 
+                          onChange={(e) => updateSection(sec.id, { location: e.target.value })} 
+                        />
                       </div>
                       <div className="md:col-span-4 space-y-2">
                         <Label>Fence Style</Label>
                         <Select value={sec.fenceStyleId} onValueChange={(v) => updateSection(sec.id, { fenceStyleId: v })}>
-                          <SelectTrigger><SelectValue placeholder="Style" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Select Style" /></SelectTrigger>
                           <SelectContent>{fenceStyles?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div className="md:col-span-4 space-y-2">
                         <Label>Post Type</Label>
                         <Select value={sec.postStyleId} onValueChange={(v) => updateSection(sec.id, { postStyleId: v })}>
-                          <SelectTrigger><SelectValue placeholder="Post" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Select Post" /></SelectTrigger>
                           <SelectContent>{postStyles?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
-                    <div className="bg-secondary/30 p-4 rounded-xl flex items-center justify-between gap-6">
+                    <div className="bg-secondary/30 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-6">
                       <MapMeasurementTool address={jobAddress} onApply={(feet) => updateSection(sec.id, { feet })} />
-                      <div className="flex items-center gap-3">
-                        <Input type="number" className="w-24 h-10 text-lg font-black text-center" value={isNaN(sec.feet) ? "" : sec.feet} onChange={(e) => updateSection(sec.id, { feet: parseFloat(e.target.value) || 0 })} />
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <span className="text-xs font-bold text-muted-foreground uppercase">Manual Override:</span>
+                        <Input 
+                          type="number" 
+                          className="w-24 h-10 text-lg font-black text-center" 
+                          value={isNaN(sec.feet) ? "" : sec.feet} 
+                          onChange={(e) => updateSection(sec.id, { feet: parseFloat(e.target.value) || 0 })} 
+                        />
                         <span className="font-bold text-sm">FT</span>
                       </div>
                     </div>
@@ -298,10 +335,102 @@ function NewEstimateContent() {
             </div>
           )}
 
+          {step === 3 && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <DoorOpen className="h-5 w-5 text-primary" /> Gates & Access
+                </h3>
+                <Button onClick={addGate} variant="outline" size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" /> Add Gate
+                </Button>
+              </div>
+              {gates.length > 0 ? (
+                <div className="grid gap-4">
+                  {gates.map((gate, idx) => (
+                    <Card key={gate.id} className="border-2 shadow-sm">
+                      <CardContent className="pt-6">
+                        <div className="grid md:grid-cols-12 gap-4 items-end">
+                          <div className="md:col-span-4 space-y-2">
+                            <Label>Gate Style</Label>
+                            <Select value={gate.styleId} onValueChange={(v) => updateGate(gate.id, { styleId: v })}>
+                              <SelectTrigger><SelectValue placeholder="Select Gate" /></SelectTrigger>
+                              <SelectContent>{gateStyles?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="md:col-span-3 space-y-2">
+                            <Label>Location</Label>
+                            <Input 
+                              placeholder="e.g. Driveway" 
+                              value={gate.location} 
+                              onChange={(e) => updateGate(gate.id, { location: e.target.value })} 
+                            />
+                          </div>
+                          <div className="md:col-span-3 space-y-2">
+                            <Label>Quantity</Label>
+                            <Input 
+                              type="number" 
+                              value={gate.qty} 
+                              onChange={(e) => updateGate(gate.id, { qty: parseInt(e.target.value) || 0 })} 
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex justify-end">
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeGate(gate.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed rounded-2xl bg-secondary/10 text-muted-foreground">
+                  <DoorOpen className="h-10 w-10 opacity-20 mb-4" />
+                  <p className="text-sm font-medium">No gates added yet.</p>
+                  <Button variant="link" onClick={addGate}>Add your first gate</Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 4 && (
+            <Card className="border-2 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <ClipboardList className="h-5 w-5" /> Crew Notes & Site Details
+                </CardTitle>
+                <CardDescription>Internal instructions for the installation team. These will appear on the Job Pack.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Critical Instructions</Label>
+                  <Textarea 
+                    id="notes" 
+                    placeholder="e.g. Call before digging (utilities), watch for sprinkler lines on West side, client requested caps on all posts..."
+                    className="min-h-[200px]"
+                    value={crewNotes}
+                    onChange={(e) => setCrewNotes(e.target.value)}
+                  />
+                </div>
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex gap-3">
+                  <MessageSquare className="h-5 w-5 text-amber-600 shrink-0" />
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    <strong>Pro Tip:</strong> Be specific about terrain issues or utility markings. This reduces field errors and improves margin accuracy.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {step === 5 && (
             <div className="space-y-6">
               <Card className="border-2 shadow-sm">
-                <CardHeader><CardTitle>Pricing Strategy</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-primary" /> Pricing Strategy
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -310,9 +439,27 @@ function NewEstimateContent() {
                         <Input type="number" step="0.01" value={(overheadPct * 100).toFixed(1)} onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100 || 0)} />
                       </div>
                       <div className="space-y-2">
-                        <Label>Profit %</Label>
+                        <Label>Profit % ({pricingMethod})</Label>
                         <Input type="number" step="0.01" value={(profitPct * 100).toFixed(1)} onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} />
                       </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant={pricingMethod === 'markup' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setPricingMethod('markup')}
+                        className="flex-1"
+                      >
+                        Markup
+                      </Button>
+                      <Button 
+                        variant={pricingMethod === 'margin' ? 'default' : 'outline'} 
+                        size="sm" 
+                        onClick={() => setPricingMethod('margin')}
+                        className="flex-1"
+                      >
+                        Margin
+                      </Button>
                     </div>
                   </div>
                   <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20">
@@ -320,22 +467,52 @@ function NewEstimateContent() {
                   </div>
                 </CardContent>
               </Card>
+              
               <Card className="border-2 shadow-xl overflow-hidden">
                 <CardHeader className="bg-slate-900 text-white p-6">
-                  <h2 className="text-2xl font-black font-mono">CLIENT QUOTE PREVIEW</h2>
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-black font-mono">CLIENT QUOTE PREVIEW</h2>
+                    <Badge className="bg-primary text-white">DRAFT</Badge>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-6 space-y-8">
                   <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                      <h4 className="font-bold text-[10px] uppercase text-slate-400">Client</h4>
-                      <p className="text-lg font-black">{selectedCustomer?.name || 'No Client'}</p>
-                      <p className="text-sm text-slate-500">{jobAddress || 'No Address'}</p>
+                      <h4 className="font-bold text-[10px] uppercase text-slate-400">Prepared For</h4>
+                      <p className="text-lg font-black">{selectedCustomer?.name || 'No Client Selected'}</p>
+                      <p className="text-sm text-slate-500">{jobAddress || 'No Address Provided'}</p>
+                    </div>
+                    <div className="text-right space-y-2">
+                      <h4 className="font-bold text-[10px] uppercase text-slate-400">Date Issued</h4>
+                      <p className="font-bold">{new Date().toLocaleDateString()}</p>
                     </div>
                   </div>
+                  
                   <Separator />
+                  
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-xs uppercase tracking-widest text-slate-400">Scope Summary</h4>
+                    <div className="space-y-2">
+                      {sections.map((s, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span>{fenceStyles?.find(fs => fs.id === s.fenceStyleId)?.name || 'Standard Fence'} - {s.location || 'Section'}</span>
+                          <span className="font-mono">{s.feet} FT</span>
+                        </div>
+                      ))}
+                      {gates.map((g, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span>{gateStyles?.find(gs => gs.id === g.styleId)?.name || 'Standard Gate'} - {g.location || 'Entry'}</span>
+                          <span className="font-mono">x{g.qty}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
                   <div className="flex justify-between items-center text-2xl font-black text-slate-900 pt-2">
-                    <span>TOTAL</span>
-                    <span className="font-mono">${totals.finalTotal.toFixed(2)}</span>
+                    <span>TOTAL ESTIMATE</span>
+                    <span className="font-mono text-primary">${totals.finalTotal.toFixed(2)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -350,9 +527,36 @@ function NewEstimateContent() {
               <p className="text-4xl font-black font-mono mt-2">${totals.finalTotal.toFixed(2)}</p>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Footage</span>
-                <span className="font-bold">{totals.totalFeetCount} FT</span>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Footage</span>
+                  <span className="font-bold">{totals.totalFeetCount} FT</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Gate Count</span>
+                  <span className="font-bold">{gates.reduce((acc, g) => acc + (g.qty || 0), 0)}</span>
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Materials</span>
+                  <span className="font-mono">${totals.materialsTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Labor</span>
+                  <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Tax (8%)</span>
+                  <span className="font-mono">${totals.tax.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="bg-secondary/50 p-3 rounded-lg mt-4">
+                <div className="flex justify-between text-sm font-bold">
+                  <span className="text-primary">Deposit Required</span>
+                  <span className="text-primary">${totals.deposit.toFixed(2)}</span>
+                </div>
               </div>
             </CardContent>
             <CardFooter className="p-6 pt-0">

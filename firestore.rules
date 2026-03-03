@@ -1,14 +1,12 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * PILLARPATH SECURITY RULES - PROTOTYPING MODE
+     * PILLARPATH SECURITY RULES
      */
 
     // --- HELPER FUNCTIONS ---
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -81,7 +79,7 @@ service cloud.firestore {
       allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
     }
 
-    // Fixed categorical style paths
+    // FIXED STYLE PATHS
     match /tenants/{tenantId}/fenceStyles/{styleId} {
       allow get, list: if isTenantMember(tenantId);
       allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);

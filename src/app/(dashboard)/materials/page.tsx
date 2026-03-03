@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { SAMPLE_MATERIALS } from "@/lib/mock-data";
 import { Material, MaterialUnit } from "@/lib/types";
 import { 
   Table, 
@@ -34,16 +33,32 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, doc, serverTimestamp } from "firebase/firestore";
 
 export default function MaterialsPage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [mounted, setMounted] = useState(false);
-  const [materials, setMaterials] = useState<Material[]>(SAMPLE_MATERIALS);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   
+  // Resolve Tenant context
+  const { data: profile } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
+  const tenantId = profile?.tenantId || 'tenant_1';
+
+  const materialsQuery = useMemoFirebase(() => {
+    return query(
+      collection(firestore, 'tenants', tenantId, 'materials'),
+      orderBy('createdAt', 'desc')
+    );
+  }, [firestore, tenantId]);
+
+  const { data: materials, isLoading: isFirestoreLoading } = useCollection<Material>(materialsQuery);
+
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [editingMaterial, setEditingMaterial] = useState<Partial<Material> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Bulk Upload State
@@ -56,12 +71,12 @@ export default function MaterialsPage() {
   }, []);
 
   const filteredMaterials = useMemo(() => {
-    return materials.filter((mat) => {
+    return (materials || []).filter((mat) => {
       const matchesSearch = 
         mat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        mat.category.toLowerCase().includes(searchTerm.toLowerCase());
+        (mat.category || '').toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesCategory = categoryFilter === "ALL" || mat.category.toUpperCase() === categoryFilter.replace('_', ' ');
+      const matchesCategory = categoryFilter === "ALL" || mat.category?.toUpperCase() === categoryFilter.replace('_', ' ');
       
       return matchesSearch && matchesCategory;
     });
@@ -74,8 +89,7 @@ export default function MaterialsPage() {
 
   const handleAddNew = () => {
     setEditingMaterial({
-      id: crypto.randomUUID(),
-      tenantId: 'tenant_1',
+      tenantId: tenantId,
       name: '',
       category: 'Other',
       unit: 'psc',
@@ -87,35 +101,36 @@ export default function MaterialsPage() {
 
   const handleSaveMaterial = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingMaterial) return;
+    if (!editingMaterial || !editingMaterial.name) return;
 
     setIsSaving(true);
-    setTimeout(() => {
-      const isExisting = materials.some(m => m.id === editingMaterial.id);
-      if (isExisting) {
-        setMaterials(materials.map(m => m.id === editingMaterial.id ? editingMaterial : m));
-        toast({
-          title: "Material Updated",
-          description: `${editingMaterial.name} has been successfully updated.`,
-        });
-      } else {
-        setMaterials([...materials, editingMaterial]);
-        toast({
-          title: "Material Created",
-          description: `${editingMaterial.name} has been added to inventory.`,
-        });
-      }
-      setIsSaving(false);
-      setIsEditorOpen(false);
-    }, 600);
+    
+    if (editingMaterial.id) {
+      const docRef = doc(firestore, 'tenants', tenantId, 'materials', editingMaterial.id);
+      updateDocumentNonBlocking(docRef, {
+        ...editingMaterial,
+        updatedAt: serverTimestamp()
+      });
+      toast({ title: "Material Updated" });
+    } else {
+      const colRef = collection(firestore, 'tenants', tenantId, 'materials');
+      addDocumentNonBlocking(colRef, {
+        ...editingMaterial,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      toast({ title: "Material Added" });
+    }
+
+    setIsSaving(false);
+    setIsEditorOpen(false);
   };
 
   const handleDelete = (id: string) => {
-    const materialToDelete = materials.find(m => m.id === id);
-    setMaterials(materials.filter(m => m.id !== id));
+    const docRef = doc(firestore, 'tenants', tenantId, 'materials', id);
+    deleteDocumentNonBlocking(docRef);
     toast({
       title: "Material Removed",
-      description: `${materialToDelete?.name || 'Material'} has been deleted from your inventory.`,
       variant: "destructive"
     });
   };
@@ -130,10 +145,6 @@ export default function MaterialsPage() {
     a.download = 'pillarpath_materials_template.csv';
     a.click();
     window.URL.revokeObjectURL(url);
-    toast({
-      title: "Template Downloaded",
-      description: "Follow the format in the CSV for successful bulk upload.",
-    });
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,33 +157,28 @@ export default function MaterialsPage() {
       const text = event.target?.result as string;
       const rows = text.split('\n').filter(row => row.trim() !== '');
       
-      // Skip header row
-      const newMaterials: Material[] = [];
+      const colRef = collection(firestore, 'tenants', tenantId, 'materials');
+      
       for (let i = 1; i < rows.length; i++) {
         const columns = rows[i].split(',').map(col => col.trim());
         if (columns.length >= 4) {
           const [name, category, unit, unitCost, description] = columns;
-          newMaterials.push({
-            id: crypto.randomUUID(),
-            tenantId: 'tenant_1',
+          addDocumentNonBlocking(colRef, {
+            tenantId: tenantId,
             name: name || 'Unnamed Material',
             category: category || 'Other',
             unit: (unit as MaterialUnit) || 'psc',
             unitCost: parseFloat(unitCost) || 0,
-            description: description || ''
+            description: description || '',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
           });
         }
       }
 
-      setTimeout(() => {
-        setMaterials(prev => [...prev, ...newMaterials]);
-        setIsUploading(false);
-        setIsBulkUploadOpen(false);
-        toast({
-          title: "Upload Successful",
-          description: `Added ${newMaterials.length} new materials to your inventory.`,
-        });
-      }, 1000);
+      setIsUploading(false);
+      setIsBulkUploadOpen(false);
+      toast({ title: "Bulk Upload Complete" });
     };
     reader.readAsText(file);
   };
@@ -229,9 +235,6 @@ export default function MaterialsPage() {
                   <div className="flex items-center gap-2 text-sm font-semibold">
                     <Download className="h-4 w-4" /> Need a template?
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Download our CSV template to see the required column structure.
-                  </p>
                   <Button variant="secondary" size="sm" className="w-full gap-2" onClick={handleDownloadTemplate}>
                     Download Example CSV
                   </Button>
@@ -282,7 +285,13 @@ export default function MaterialsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMaterials.length > 0 ? (
+            {isFirestoreLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-32 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : filteredMaterials.length > 0 ? (
               filteredMaterials.map((mat) => (
                 <TableRow key={mat.id}>
                   <TableCell className="font-medium">
@@ -318,16 +327,7 @@ export default function MaterialsPage() {
                 <TableCell colSpan={5} className="h-32 text-center">
                   <div className="flex flex-col items-center justify-center text-muted-foreground gap-2">
                     <FilterX className="h-8 w-8 opacity-20" />
-                    <p>No materials found matching your criteria.</p>
-                    {(searchTerm || categoryFilter !== "ALL") && (
-                      <Button 
-                        variant="link" 
-                        size="sm" 
-                        onClick={() => { setSearchTerm(""); setCategoryFilter("ALL"); }}
-                      >
-                        Clear filters
-                      </Button>
-                    )}
+                    <p>No materials found.</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -336,16 +336,15 @@ export default function MaterialsPage() {
         </Table>
       </div>
 
-      {/* Material Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <form onSubmit={handleSaveMaterial}>
             <DialogHeader>
               <DialogTitle>
-                {materials.some(m => m.id === editingMaterial?.id) ? "Edit Material" : "Add New Material"}
+                {editingMaterial?.id ? "Edit Material" : "Add New Material"}
               </DialogTitle>
               <DialogDescription>
-                Define your material details and unit costs for precise estimating.
+                Define your material details and unit costs.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -355,11 +354,9 @@ export default function MaterialsPage() {
                   id="name" 
                   value={editingMaterial?.name || ''} 
                   onChange={(e) => setEditingMaterial(prev => prev ? { ...prev, name: e.target.value } : null)}
-                  placeholder="e.g. Cedar Picket 6ft"
                   required
                 />
               </div>
-              
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="category">Category</Label>
@@ -367,9 +364,7 @@ export default function MaterialsPage() {
                     value={editingMaterial?.category} 
                     onValueChange={(val) => setEditingMaterial(prev => prev ? { ...prev, category: val } : null)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Wood">Wood</SelectItem>
                       <SelectItem value="Chain Link">Chain Link</SelectItem>
@@ -380,28 +375,21 @@ export default function MaterialsPage() {
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="unit">Unit of Measure</Label>
+                  <Label htmlFor="unit">Unit</Label>
                   <Select 
                     value={editingMaterial?.unit} 
                     onValueChange={(val: any) => setEditingMaterial(prev => prev ? { ...prev, unit: val } : null)}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Unit" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="board">Board</SelectItem>
                       <SelectItem value="ft">Foot (ft)</SelectItem>
                       <SelectItem value="psc">Piece (psc)</SelectItem>
-                      <SelectItem value="box">Box</SelectItem>
                       <SelectItem value="lb">Pound (lb)</SelectItem>
-                      <SelectItem value="yard">Yard</SelectItem>
-                      <SelectItem value="roll">Roll</SelectItem>
-                      <SelectItem value="bag">Bag</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-
               <div className="grid gap-2">
                 <Label htmlFor="unitCost">Unit Cost ($)</Label>
                 <Input 
@@ -410,29 +398,21 @@ export default function MaterialsPage() {
                   step="0.01"
                   value={editingMaterial?.unitCost || 0} 
                   onChange={(e) => setEditingMaterial(prev => prev ? { ...prev, unitCost: parseFloat(e.target.value) } : null)}
-                  placeholder="0.00"
                   required
                 />
               </div>
-
               <div className="grid gap-2">
-                <Label htmlFor="description">Description (Optional)</Label>
+                <Label htmlFor="description">Description</Label>
                 <Textarea 
                   id="description" 
                   value={editingMaterial?.description || ''} 
                   onChange={(e) => setEditingMaterial(prev => prev ? { ...prev, description: e.target.value } : null)}
-                  placeholder="Brief description of the material..."
-                  className="min-h-[100px]"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)} className="gap-2">
-                <X className="h-4 w-4" /> Cancel
-              </Button>
-              <Button type="submit" disabled={isSaving} className="gap-2">
-                {isSaving ? "Saving..." : <><Save className="h-4 w-4" /> Save Material</>}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setIsEditorOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={isSaving}>Save Material</Button>
             </DialogFooter>
           </form>
         </DialogContent>

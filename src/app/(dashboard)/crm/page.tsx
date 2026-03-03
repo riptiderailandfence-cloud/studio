@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { SAMPLE_CUSTOMERS } from "@/lib/mock-data";
 import { Customer } from "@/lib/types";
 import { 
   Table, 
@@ -40,7 +39,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useUser, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, doc, serverTimestamp } from "firebase/firestore";
 
 export default function CRMPage() {
@@ -51,9 +50,10 @@ export default function CRMPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   
-  // Real-time Firestore Query
-  // For prototyping, we use 'tenant_1' if the user isn't fully set up with a profile yet.
-  const tenantId = 'tenant_1'; 
+  // Resolve Tenant ID from user profile
+  const { data: profile } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
+  const tenantId = profile?.tenantId || 'tenant_1'; 
+
   const customersQuery = useMemoFirebase(() => {
     return query(
       collection(firestore, 'tenants', tenantId, 'customers'),
@@ -61,14 +61,7 @@ export default function CRMPage() {
     );
   }, [firestore, tenantId]);
 
-  const { data: firestoreCustomers, isLoading: isFirestoreLoading } = useCollection<Customer>(customersQuery);
-
-  // Fallback to sample data if Firestore is empty or loading for the first time
-  const customers = useMemo(() => {
-    return firestoreCustomers && firestoreCustomers.length > 0 
-      ? firestoreCustomers 
-      : SAMPLE_CUSTOMERS;
-  }, [firestoreCustomers]);
+  const { data: customers, isLoading: isFirestoreLoading } = useCollection<Customer>(customersQuery);
 
   // Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -118,10 +111,8 @@ export default function CRMPage() {
     }
 
     setIsSaving(true);
-    const colRef = collection(firestore, 'tenants', tenantId, 'customers');
     
     if (editingCustomer.id) {
-      // Update existing
       const docRef = doc(firestore, 'tenants', tenantId, 'customers', editingCustomer.id);
       updateDocumentNonBlocking(docRef, {
         ...editingCustomer,
@@ -129,7 +120,7 @@ export default function CRMPage() {
       });
       toast({ title: "Customer Updated" });
     } else {
-      // Add new
+      const colRef = collection(firestore, 'tenants', tenantId, 'customers');
       addDocumentNonBlocking(colRef, {
         ...editingCustomer,
         name: `${editingCustomer.firstName} ${editingCustomer.lastName}`,
@@ -211,7 +202,7 @@ export default function CRMPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isFirestoreLoading && customers.length === 0 ? (
+            {isFirestoreLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center">
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />

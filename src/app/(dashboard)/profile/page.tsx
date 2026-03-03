@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,30 +10,104 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { 
-  User, 
+  User as UserIcon, 
   Mail, 
   Shield, 
   Key, 
   LogOut, 
   Bell, 
   Save,
-  Camera
+  Camera,
+  Loader2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useUser, useFirestore, useDoc, updateDocumentNonBlocking, setDocumentNonBlocking, initiateSignOut, useAuth } from "@/firebase";
+import { doc, serverTimestamp } from "firebase/firestore";
 
 export default function ProfilePage() {
+  const { user } = useUser();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { data: profile, isLoading: isProfileLoading } = useDoc(user ? doc(firestore, 'users', user.uid) : null);
+  
   const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+  });
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        email: profile.email || user?.email || "",
+        phone: profile.phone || "",
+      });
+    } else if (user) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || "",
+      }));
+    }
+  }, [profile, user]);
+
+  const handleSave = async () => {
+    if (!user) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const userRef = doc(firestore, 'users', user.uid);
+      const dataToSave = {
+        ...formData,
+        updatedAt: serverTimestamp(),
+      };
+
+      if (profile) {
+        updateDocumentNonBlocking(userRef, dataToSave);
+      } else {
+        // Initial profile creation
+        setDocumentNonBlocking(userRef, {
+          ...dataToSave,
+          uid: user.uid,
+          tenantId: 'tenant_1', // Default tenant for now
+          role: 'Owner',
+          createdAt: serverTimestamp(),
+        }, { merge: true });
+      }
+
       toast({
         title: "Profile Updated",
         description: "Your personal information has been saved successfully.",
       });
-    }, 800);
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save profile changes.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleSignOut = () => {
+    initiateSignOut(auth);
+  };
+
+  if (isProfileLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const displayName = profile?.firstName ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "User");
+  const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -50,8 +124,8 @@ export default function ProfilePage() {
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="relative group">
                   <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
-                    <AvatarImage src="https://picsum.photos/seed/user123/200" />
-                    <AvatarFallback className="text-2xl">JD</AvatarFallback>
+                    <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/200`} />
+                    <AvatarFallback className="text-2xl">{userInitials}</AvatarFallback>
                   </Avatar>
                   <Button 
                     size="icon" 
@@ -62,27 +136,31 @@ export default function ProfilePage() {
                   </Button>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">John Doe</h3>
-                  <p className="text-sm text-muted-foreground">john@evergreenfencing.com</p>
+                  <h3 className="text-xl font-bold">{displayName}</h3>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
                 <Badge variant="secondary" className="px-4 py-1">
-                  Business Owner
+                  {profile?.role || "Business Owner"}
                 </Badge>
               </div>
               <Separator className="my-6" />
               <div className="space-y-4">
                 <div className="flex items-center gap-3 text-sm">
                   <Shield className="h-4 w-4 text-primary" />
-                  <span>Full Access Permissions</span>
+                  <span>{profile?.role === 'Owner' ? 'Full Access Permissions' : 'Limited Access'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  <span>Joined Oct 2023</span>
+                  <UserIcon className="h-4 w-4" />
+                  <span>Joined {profile?.createdAt ? new Date(profile.createdAt.seconds * 1000).toLocaleDateString() : 'Recently'}</span>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-2">
-              <Button variant="outline" className="w-full text-destructive hover:bg-destructive/10 border-destructive/20 gap-2">
+              <Button 
+                variant="outline" 
+                className="w-full text-destructive hover:bg-destructive/10 border-destructive/20 gap-2"
+                onClick={handleSignOut}
+              >
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </Button>
@@ -101,27 +179,46 @@ export default function ProfilePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue="John" />
+                  <Input 
+                    id="firstName" 
+                    value={formData.firstName} 
+                    onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue="Doe" />
+                  <Input 
+                    id="lastName" 
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
                   <Mail className="h-3 w-3" /> Email Address
                 </Label>
-                <Input id="email" type="email" defaultValue="john@evergreenfencing.com" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  value={formData.email}
+                  disabled
+                />
+                <p className="text-[10px] text-muted-foreground">Email is managed via authentication settings.</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" defaultValue="(555) 987-6543" />
+                <Input 
+                  id="phone" 
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                />
               </div>
             </CardContent>
             <CardFooter className="border-t bg-secondary/10 px-6 py-4 flex justify-end">
               <Button onClick={handleSave} disabled={loading} className="gap-2">
-                <Save className="h-4 w-4" /> {loading ? "Saving..." : "Save Changes"}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {loading ? "Saving..." : "Save Changes"}
               </Button>
             </CardFooter>
           </Card>

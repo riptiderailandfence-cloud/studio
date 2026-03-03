@@ -82,10 +82,18 @@ function NewEstimateContent() {
     if (!tenantId) return null;
     return query(collection(firestore, 'tenants', tenantId, 'gateStyles'), orderBy('name'));
   }, [firestore, tenantId]);
+  const materialsQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return query(collection(firestore, 'tenants', tenantId, 'materials'), orderBy('name'));
+  }, [firestore, tenantId]);
   
   const { data: fenceStyles } = useCollection<Style>(fencesQuery);
   const { data: postStyles } = useCollection<Style>(postsQuery);
   const { data: gateStyles } = useCollection<Style>(gatesQuery);
+  const { data: allMaterials } = useCollection<Material>(materialsQuery); // Renamed to allMaterials to avoid conflict
+  const materialsMap = useMemo(() => {
+    return new Map(allMaterials?.map(m => [m.id, m]));
+  }, [allMaterials]);
 
   const settingsRef = useMemoFirebase(() => {
     if (!tenantId) return null;
@@ -100,7 +108,7 @@ function NewEstimateContent() {
   const [gates, setGates] = useState<GateEntry[]>([]);
   const [overheadPct, setOverheadPct] = useState<number>(0.10); 
   const [profitPct, setProfitPct] = useState<number>(0.30); 
-  const [pricingMethod, setPricingMethod] = useState<'margin' | 'markup'>('markup');
+  const [pricingMethod, setPricingMethod] = useState<'markup' | 'margin'>('markup');
 
   useEffect(() => {
     setMounted(true);
@@ -110,8 +118,9 @@ function NewEstimateContent() {
 
   useEffect(() => {
     if (settings) {
+      // Convert percentages from whole numbers (e.g., 10 for 10%) to decimals (0.10)
       setOverheadPct((settings.overheadPct || 10) / 100);
-      setProfitPct((settings.profitPct || 20) / 100);
+      setProfitPct((settings.profitPct || settings.defaultPercentage || 20) / 100); // Use profitPct or defaultPercentage
       setPricingMethod(settings.pricingMethod || 'markup');
     }
   }, [settings]);
@@ -129,35 +138,72 @@ function NewEstimateContent() {
   const updateGate = (id: string, updates: Partial<GateEntry>) => setGates(gates.map(g => g.id === id ? { ...g, ...updates } : g));
   const removeGate = (id: string) => setGates(gates.filter(g => g.id !== id));
 
+  const calculateBOMCost = (bom: Style['bom'], quantityMultiplier: number): number => {
+    if (!bom || !materialsMap || quantityMultiplier === 0) return 0;
+    return bom.reduce((acc, bomItem) => {
+      const material = materialsMap.get(bomItem.materialId);
+      if (!material) return acc;
+      const costPerUnit = material.unitCost;
+      const qtyWithWaste = bomItem.qtyPerUnit * (1 + (bomItem.wastePct || 0));
+      return acc + (costPerUnit * qtyWithWaste * quantityMultiplier);
+    }, 0);
+  };
+
   const totals = useMemo(() => {
     let materialsTotal = 0;
     let totalFeetCount = 0;
+    
     const sOverhead = isNaN(overheadPct) ? 0 : overheadPct;
     const sProfit = isNaN(profitPct) ? 0 : profitPct;
+    const salesTaxRate = (settings?.salesTaxRate || 0) / 100; 
 
     sections.forEach(sec => {
       const fStyle = fenceStyles?.find(s => s.id === sec.fenceStyleId);
       const pStyle = postStyles?.find(s => s.id === sec.postStyleId);
       const feet = isNaN(sec.feet) ? 0 : sec.feet;
-      materialsTotal += (fStyle?.costPerUnit || 0) * feet;
-      const pSpacing = pStyle?.sectionLength || 8;
-      const postQty = feet > 0 ? Math.ceil(feet / pSpacing) + 1 : 0;
-      materialsTotal += (pStyle?.costPerUnit || 0) * postQty;
+      
+      let fenceStyleQuantity = 0;
+      if (fStyle?.measurementBasis === 'foot') {
+        fenceStyleQuantity = feet;
+      } else if (fStyle?.measurementBasis === 'section') {
+        const sectionLength = fStyle.sectionLength || 8; // Default section length
+        fenceStyleQuantity = feet > 0 ? Math.ceil(feet / sectionLength) : 0;
+      }
+      materialsTotal += calculateBOMCost(fStyle?.bom || [], fenceStyleQuantity);
+
+      const pSpacing = pStyle?.sectionLength || 8; // Post spacing (e.g., 8ft for a section)
+      const postQty = feet > 0 ? Math.ceil(feet / pSpacing) + 1 : 0; // +1 for the last post
+      materialsTotal += calculateBOMCost(pStyle?.bom || [], postQty);
+      
       totalFeetCount += feet;
     });
 
-    const gateCost = gates.reduce((acc, g) => acc + (gateStyles?.find(gs => gs.id === g.styleId)?.costPerUnit || 0) * (g.qty || 0), 0);
+    const gateCost = gates.reduce((acc, g) => {
+      const style = gateStyles?.find(gs => gs.id === g.styleId);
+      const gateQty = isNaN(g.qty) ? 0 : g.qty;
+      return acc + calculateBOMCost(style?.bom || [], gateQty);
+    }, 0);
     materialsTotal += gateCost;
 
-    const laborCost = totalFeetCount * 12; // Basic labor estimate multiplier
+    const crewSize = settings?.crewSize || 2;
+    const avgHourlyRate = settings?.avgHourlyRate || 35;
+    const dailyProduction = settings?.dailyProduction || 100;
+
+    const hourlyCrewCost = crewSize * avgHourlyRate;
+    const dailyCrewCost = hourlyCrewCost * 8; 
+    const laborCostPerFoot = dailyProduction > 0 ? dailyCrewCost / dailyProduction : 0;
+
+    const laborCost = totalFeetCount * laborCostPerFoot; 
+    
     const baseCost = (materialsTotal + laborCost) * (1 + sOverhead);
     
     let sellTotal = pricingMethod === 'margin' ? (1 - sProfit <= 0 ? baseCost : baseCost / (1 - sProfit)) : baseCost * (1 + sProfit);
-    const tax = sellTotal * 0.08;
+    const tax = sellTotal * salesTaxRate; 
     const finalTotal = sellTotal + tax;
+    const deposit = finalTotal * ((settings?.depositPct || 0.5)); 
 
-    return { totalFeetCount, materialsTotal, laborCost, sellTotal, tax, finalTotal, deposit: finalTotal * 0.5 };
-  }, [sections, gates, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod]);
+    return { totalFeetCount, materialsTotal, laborCost, sellTotal, tax, finalTotal, deposit };
+  }, [sections, gates, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap]);
 
   const handleSaveEstimate = () => {
     if (!tenantId || !selectedCustomerId || !jobAddress) {
@@ -181,7 +227,7 @@ function NewEstimateContent() {
       gates,
       crewNotes,
       pricingMethod,
-      pricingValue: profitPct,
+      pricingValue: profitPct, 
       totals: {
         materials: totals.materialsTotal,
         labor: totals.laborCost,
@@ -192,18 +238,16 @@ function NewEstimateContent() {
       },
       status: 'sent',
       clientAccessToken: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: serverTimestamp(), 
+      updatedAt: serverTimestamp() 
     };
 
     const colRef = collection(firestore, 'tenants', tenantId, 'estimates');
     addDocumentNonBlocking(colRef, estimateData);
 
-    setTimeout(() => {
-      setIsSaving(false);
-      toast({ title: "Estimate Created", description: `Saved and ready for ${selectedCustomer?.name}` });
-      router.push("/estimates");
-    }, 1000);
+    setIsSaving(false);
+    toast({ title: "Estimate Created", description: `Saved and ready for ${selectedCustomer?.name}` });
+    router.push("/estimates");
   };
 
   if (!mounted) return null;
@@ -549,7 +593,7 @@ function NewEstimateContent() {
                   <span className="font-mono">${totals.laborCost.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Tax (8%)</span>
+                  <span className="text-muted-foreground">Tax ({((settings?.salesTaxRate || 0)).toFixed(1)}%)</span>
                   <span className="font-mono">${totals.tax.toFixed(2)}</span>
                 </div>
               </div>

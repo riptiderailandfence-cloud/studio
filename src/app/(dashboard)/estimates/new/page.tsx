@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -138,7 +139,6 @@ function NewEstimateContent() {
   useEffect(() => {
     if (settings) {
       setOverheadPct((settings.overheadPct || 10) / 100);
-      // Use Default Percentage from settings as profit margin/markup
       const defaultVal = settings.defaultPercentage !== undefined ? settings.defaultPercentage : (settings.profitPct || 20);
       setProfitPct(defaultVal / 100);
       setPricingMethod(settings.pricingMethod || 'markup');
@@ -254,12 +254,21 @@ function NewEstimateContent() {
     
     const laborCost = activeManHours * avgHourlyRate;
     
-    const baseCost = (materialsTotal + laborCost + removalTotal) * (1 + sOverhead);
+    // CALCULATION FOR MARGIN %: (material total + material tax + labor cost + demo cost) / (1 - Margin %)
     const materialTax = materialsTotal * salesTaxRate;
+    const totalCostBasis = materialsTotal + materialTax + laborCost + removalTotal;
     
-    let sellTotal = pricingMethod === 'margin' ? (1 - sProfit <= 0 ? baseCost : baseCost / (1 - sProfit)) : baseCost * (1 + sProfit);
-    const tax = materialTax; 
-    const finalTotal = sellTotal + tax;
+    // Apply overhead to the basis
+    const baseWithOverhead = totalCostBasis * (1 + sOverhead);
+    
+    let finalTotal = 0;
+    if (pricingMethod === 'margin') {
+      finalTotal = (1 - sProfit <= 0) ? baseWithOverhead : baseWithOverhead / (1 - sProfit);
+    } else {
+      finalTotal = baseWithOverhead * (1 + sProfit);
+    }
+
+    const sellTotal = finalTotal; 
     const deposit = finalTotal * ((settings?.depositPct || 0.5)); 
 
     return { 
@@ -274,7 +283,7 @@ function NewEstimateContent() {
       materialTax,
       removalTotal, 
       sellTotal, 
-      tax, 
+      tax: materialTax, 
       finalTotal, 
       deposit,
       activeManHours,
@@ -667,8 +676,8 @@ function NewEstimateContent() {
                     <Label className="flex items-center gap-2 text-slate-600"><Wrench className="h-4 w-4" /> Labor Cost</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold">$</span>
-                      <Input 
-                        className="pl-7 h-12 text-lg font-black bg-slate-50" 
+                      <input 
+                        className="flex h-12 w-full rounded-md border border-input bg-slate-50 px-3 py-2 text-lg font-black ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-7" 
                         value={totals.laborCost.toFixed(2)} 
                         readOnly 
                       />

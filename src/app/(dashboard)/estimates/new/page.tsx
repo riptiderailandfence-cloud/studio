@@ -689,7 +689,10 @@ function NewEstimateContent() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-2 text-slate-600"><Percent className="h-4 w-4" /> Profit Margin</Label>
+                    <Label className="flex items-center gap-2 text-slate-600">
+                      <Percent className="h-4 w-4" /> 
+                      {pricingMethod === 'markup' ? 'Markup' : 'Profit Margin'}
+                    </Label>
                     <div className="relative">
                       <Input 
                         type="number"

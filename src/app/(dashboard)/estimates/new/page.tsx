@@ -138,7 +138,9 @@ function NewEstimateContent() {
   useEffect(() => {
     if (settings) {
       setOverheadPct((settings.overheadPct || 10) / 100);
-      setProfitPct((settings.profitPct || settings.defaultPercentage || 20) / 100);
+      // Use Default Percentage from settings as profit margin/markup
+      const defaultVal = settings.defaultPercentage !== undefined ? settings.defaultPercentage : (settings.profitPct || 20);
+      setProfitPct(defaultVal / 100);
       setPricingMethod(settings.pricingMethod || 'markup');
     }
   }, [settings]);

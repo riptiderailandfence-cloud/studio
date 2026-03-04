@@ -256,7 +256,7 @@ function NewEstimateContent() {
     const materialTax = materialsTotal * salesTaxRate;
     
     let sellTotal = pricingMethod === 'margin' ? (1 - sProfit <= 0 ? baseCost : baseCost / (1 - sProfit)) : baseCost * (1 + sProfit);
-    const tax = sellTotal * salesTaxRate; 
+    const tax = materialTax; 
     const finalTotal = sellTotal + tax;
     const deposit = finalTotal * ((settings?.depositPct || 0.5)); 
 
@@ -652,7 +652,7 @@ function NewEstimateContent() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="font-bold text-slate-900">Material Tax</p>
-                      <p className="text-[10px] text-muted-foreground">{(settings?.salesTaxRate || 0)}% on materials</p>
+                      <p className="text-[10px] text-muted-foreground">{(settings?.salesTaxRate || 0)}% on materials ONLY</p>
                     </div>
                     <span className="text-xl font-black">${totals.materialTax.toFixed(2)}</span>
                   </div>
@@ -705,8 +705,8 @@ function NewEstimateContent() {
 
                 <div className="bg-slate-900 text-white rounded-xl p-6 mt-8">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-black uppercase tracking-widest opacity-60">Subtotal (Materials + Tax + Labor)</span>
-                    <span className="text-2xl font-black font-mono">${totals.sellTotal.toFixed(2)}</span>
+                    <span className="text-xs font-black uppercase tracking-widest opacity-60">Total (Materials + Tax + Labor + Profit)</span>
+                    <span className="text-2xl font-black font-mono">${totals.finalTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -923,7 +923,7 @@ function NewEstimateContent() {
                   </div>
                 )}
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Tax ({((settings?.salesTaxRate || 0)).toFixed(1)}%)</span>
+                  <span className="text-muted-foreground">material tax ({((settings?.salesTaxRate || 0)).toFixed(1)}%)</span>
                   <span className="font-mono">${totals.tax.toFixed(2)}</span>
                 </div>
               </div>

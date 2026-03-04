@@ -76,7 +76,10 @@ function NewEstimateContent() {
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const userRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
   const { data: profile } = useDoc(userRef);
   const tenantId = profile?.tenantId;
 
@@ -107,6 +110,7 @@ function NewEstimateContent() {
   const { data: postStyles } = useCollection<Style>(postsQuery);
   const { data: gateStyles } = useCollection<Style>(gatesQuery);
   const { data: allMaterials } = useCollection<Material>(materialsQuery);
+  
   const materialsMap = useMemo(() => {
     return new Map(allMaterials?.map(m => [m.id, m]));
   }, [allMaterials]);
@@ -141,7 +145,7 @@ function NewEstimateContent() {
       setOverheadPct((settings.overheadPct || 10) / 100);
       const defaultVal = settings.defaultPercentage !== undefined ? settings.defaultPercentage : (settings.profitPct || 20);
       setProfitPct(defaultVal / 100);
-      setPricingMethod(settings.pricingMethod || 'markup');
+      setPricingMethod((settings.pricingMethod as 'markup' | 'margin') || 'markup');
     }
   }, [settings]);
 
@@ -254,17 +258,20 @@ function NewEstimateContent() {
     
     const laborCost = activeManHours * avgHourlyRate;
     
-    // CALCULATION FOR MARGIN %: (material total + material tax + labor cost + demo cost) / (1 - Margin %)
+    // CALCULATION LOGIC:
+    // Basis = (Material Total + Material Tax + Labor Cost + Demo Cost)
     const materialTax = materialsTotal * salesTaxRate;
-    const totalCostBasis = materialsTotal + materialTax + laborCost + removalTotal;
+    const costBasis = materialsTotal + materialTax + laborCost + removalTotal;
     
     // Apply overhead to the basis
-    const baseWithOverhead = totalCostBasis * (1 + sOverhead);
+    const baseWithOverhead = costBasis * (1 + sOverhead);
     
     let finalTotal = 0;
     if (pricingMethod === 'margin') {
+      // Formula: Total = Basis / (1 - Margin %)
       finalTotal = (1 - sProfit <= 0) ? baseWithOverhead : baseWithOverhead / (1 - sProfit);
     } else {
+      // Formula: Total = Basis * (1 + Markup %)
       finalTotal = baseWithOverhead * (1 + sProfit);
     }
 
@@ -662,7 +669,7 @@ function NewEstimateContent() {
                 <div className="space-y-2 pt-6">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-bold text-slate-900">Material Tax</p>
+                      <p className="font-bold text-slate-900">material tax</p>
                       <p className="text-[10px] text-muted-foreground">{(settings?.salesTaxRate || 0)}% on materials ONLY</p>
                     </div>
                     <span className="text-xl font-black">${totals.materialTax.toFixed(2)}</span>
@@ -816,7 +823,7 @@ function NewEstimateContent() {
                         <Input type="number" step="0.01" value={(overheadPct * 100).toFixed(1)} onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100 || 0)} />
                       </div>
                       <div className="space-y-2">
-                        <Label>Profit % ({pricingMethod})</Label>
+                        <Label>{pricingMethod === 'markup' ? 'Markup %' : 'Profit % (Margin)'}</Label>
                         <Input type="number" step="0.01" value={(profitPct * 100).toFixed(1)} onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} />
                       </div>
                     </div>

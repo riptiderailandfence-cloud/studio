@@ -1,3 +1,4 @@
+
 export type Role = 'OWNER' | 'ESTIMATOR' | 'CREW_MANAGER' | 'CREW_MEMBER';
 
 export interface Tenant {
@@ -134,4 +135,26 @@ export interface JobPerformance {
   variance: number;
   actualMargin: number;
   status: 'completed' | 'in_progress';
+}
+
+export interface ChatThread {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone?: string;
+  lastMessage: string;
+  lastTimestamp: any; 
+  unreadCount: number;
+  online: boolean; 
+  createdAt: any; 
+  updatedAt: any; 
+}
+
+export interface Message {
+  id: string;
+  senderId: string; 
+  text: string;
+  timestamp: any; 
+  status?: 'sent' | 'delivered' | 'read';
 }

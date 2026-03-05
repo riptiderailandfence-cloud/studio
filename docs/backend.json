@@ -38,53 +38,37 @@
         "updatedAt"
       ]
     },
-    "TenantSettings": {
+    "Chat": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "TenantSettings",
+      "title": "Chat",
       "type": "object",
-      "description": "Stores tenant-specific configuration settings for pricing, deposits, and other defaults.",
+      "description": "Represents a communication thread between a tenant user and a customer.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the TenantSettings entity, typically matching the tenantId it belongs to."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to the Tenant entity this setting belongs to. (Relationship: Tenant 1:1 TenantSettings)"
-        },
-        "pricingSettings": {
-          "type": "array",
-          "description": "Configuration object for default pricing strategies and calculation modes.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "depositSettings": {
-          "type": "array",
-          "description": "Configuration object for default deposit requirements.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the settings record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the settings record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastTimestamp": { "type": "string", "format": "date-time" },
+        "unreadCount": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "tenantId",
-        "pricingSettings",
-        "depositSettings",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "tenantId", "customerId", "customerName", "lastMessage", "unreadCount", "updatedAt"]
+    },
+    "Message": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Message",
+      "type": "object",
+      "description": "An individual message within a chat thread.",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string", "description": "UID of the user or 'client' for incoming SMS." },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["sent", "delivered", "read"] }
+      },
+      "required": ["id", "senderId", "text", "timestamp"]
     },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -833,18 +817,31 @@
         }
       },
       {
-        "path": "/tenants/{tenantId}/settings/general",
+        "path": "/tenants/{tenantId}/chats/{chatId}",
         "definition": {
-          "entityName": "TenantSettings",
+          "entityName": "Chat",
           "schema": {
-            "$ref": "#/backend/entities/TenantSettings"
+            "$ref": "#/backend/entities/Chat"
           },
-          "description": "Stores tenant-specific configuration settings for pricing, deposits, and other defaults. This is a subcollection of 'tenants' with a fixed document ID 'general' to ensure a 1:1 relationship. Includes denormalized 'tenantId' from the path.",
+          "description": "Stores communication threads. Includes customer details and last message metadata.",
           "params": [
-            {
-              "name": "tenantId",
-              "description": "The unique identifier for the tenant."
-            }
+            { "name": "tenantId" },
+            { "name": "chatId" }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/chats/{chatId}/messages/{messageId}",
+        "definition": {
+          "entityName": "Message",
+          "schema": {
+            "$ref": "#/backend/entities/Message"
+          },
+          "description": "Individual messages in a chat thread.",
+          "params": [
+            { "name": "tenantId" },
+            { "name": "chatId" },
+            { "name": "messageId" }
           ]
         }
       },
@@ -1028,7 +1025,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore data structure for PillarPath is designed with a strong emphasis on multi-tenancy, Authorization Independence, and support for Queryable Access Patterns (QAPs). The core principle is 'tenant-first' organization, ensuring that all tenant-specific data is logically and physically segregated.\n\n**Authorization Independence via Denormalization:**\n1.  **`tenantId` Embedding:** Every document belonging to a specific tenant (e.g., Customer, Material, Estimate, Job) will explicitly include a `tenantId` field. For collections nested under `/tenants/{tenantId}/`, the `tenantId` is implicitly part of the path, but will also be stored within the document itself to reinforce this for rules and consistency. This denormalization is CRITICAL as it eliminates the need for security rules to perform `get()` operations on parent documents (e.g., a `Tenant` document) to determine ownership. A user's `tenantId` is fetched once from their `/users/{uid}` profile, and then rules can directly compare `request.auth.uid`'s associated `tenantId` with `resource.data.tenantId` for any document.\n2.  **User Roles and Tenant Association:** The `/users/{userId}` document stores the user's `tenantId` and `role`. This allows all authorization checks to start from `request.auth.uid` and immediately retrieve the necessary `tenantId` and role without chained `get()` calls.\n3.  **Estimate Snapshots:** The `Estimate` entity includes embedded snapshots of `contactSnapshot`, `jobSiteAddress`, `lineItems`, and `calculationSettingsSnapshot`. This ensures that historical estimate data remains consistent, even if underlying customer details, material costs, or pricing settings change, thereby preserving the integrity of past estimates and removing dependencies on live data for historical views. The `clientAccessToken` for portal access is also stored directly on the `Estimate` document, making client access checks self-contained.\n\n**Support for Queryable Access Patterns (QAPs):**\n1.  **Structural Segregation for Tenants:** By nesting most tenant-specific collections under `/tenants/{tenantId}/`, Firestore security rules can easily enforce that `list` operations (queries) are automatically scoped to the `tenantId` specified in the path. For example, a query to `/tenants/myTenantId/customers` will implicitly match rules that check `tenantId == request.path[1]` (where `request.path[1]` is `myTenantId`). This means the rules are not 'filtering' results after a broad query, but rather validating the legitimacy of the query itself based on the user's authenticated `tenantId` and the requested path.\n2.  **Role-Based Access:** User roles (Owner/Admin, Estimator, Crew Manager, Crew Member) stored directly in the `/users/{userId}` document allow rules to specify which roles can `read`, `write`, or `update` specific collections. For `list` operations, this means that a user's role is checked against the collection's access requirements, preventing unauthorized users from even attempting to list documents they shouldn't see.\n3.  **Client Portal Token Access:** For `Estimate` documents, a client can access a *specific* estimate via a secure `clientAccessToken` passed in the URL. Security rules for `/tenants/{tenantId}/estimates/{estimateId}` will explicitly check if `resource.data.clientAccessToken == request.query.token`. This makes `get` operations for a single estimate secure without requiring the client to have a full Firebase Auth account. If client authentication were introduced, `list` operations for a client could be enabled by matching `customerId` in the client's token to `resource.data.customerId`."
+    ]
   }
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -12,7 +13,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, MoreHorizontal, Mail, Phone, FilterX, Save, X, Loader2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Mail, Phone, FilterX, Save, X, Loader2, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -163,6 +164,11 @@ export default function CRMPage() {
     });
   };
 
+  const openChat = (customer: Customer) => {
+    // Redirect to messages with a pre-selected phone or ID logic could go here
+    router.push('/messages');
+  };
+
   if (!mounted) return null;
 
   return (
@@ -243,25 +249,30 @@ export default function CRMPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => {
-                          setEditingCustomer({ ...customer });
-                          setIsEditorOpen(true);
-                        }}>Edit Details</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push(`/estimates/new?customer=${customer.id}`)}>
-                          Create Estimate
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(customer.id)}>
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openChat(customer)}>
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => {
+                            setEditingCustomer({ ...customer });
+                            setIsEditorOpen(true);
+                          }}>Edit Details</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => router.push(`/estimates/new?customer=${customer.id}`)}>
+                            Create Estimate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(customer.id)}>
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

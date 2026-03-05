@@ -726,7 +726,7 @@ function NewEstimateContent() {
 
                 <div className="bg-slate-900 text-white rounded-xl p-6 mt-8">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-black uppercase tracking-widest opacity-60">Total (Materials + Tax + Labor + Profit)</span>
+                    <span className="text-xs font-black uppercase tracking-widest opacity-60">Total ({pricingMethod === 'margin' ? 'Cost Basis / (1 - Margin %)' : 'Cost Basis * (1 + Markup %)'})</span>
                     <span className="text-2xl font-black font-mono">${totals.finalTotal.toFixed(2)}</span>
                   </div>
                 </div>

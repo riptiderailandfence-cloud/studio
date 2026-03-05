@@ -10,16 +10,26 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Eye, Send, Share2, Briefcase, Pencil, Loader2, FilterX } from "lucide-react";
+import { Plus, Search, Eye, Send, Share2, Briefcase, Pencil, Loader2, FilterX, Mail, CheckCircle2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, doc } from "firebase/firestore";
+import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, doc, serverTimestamp } from "firebase/firestore";
 import { Estimate } from "@/lib/types";
 import { format } from "date-fns";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { generateEstimateEmail } from "@/ai/flows/generate-estimate-email";
+import { Textarea } from "@/components/ui/textarea";
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   draft: "secondary",
@@ -35,6 +45,13 @@ export default function EstimatesPage() {
   const firestore = useFirestore();
   const [mounted, setMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Email Preview State
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [activeEstimate, setActiveEstimate] = useState<Estimate | null>(null);
+  const [emailDraft, setEmailDraft] = useState({ subject: "", body: "" });
 
   const profileRef = useMemoFirebase(() => {
     return user ? doc(firestore, 'users', user.uid) : null;
@@ -64,11 +81,54 @@ export default function EstimatesPage() {
     );
   }, [estimates, searchTerm]);
 
-  const handleSend = (id: string, customer: string) => {
-    toast({
-      title: "Estimate Sent",
-      description: `The estimate for ${customer} has been emailed successfully.`,
+  const handleOpenSendDialog = async (estimate: Estimate) => {
+    setActiveEstimate(estimate);
+    setIsEmailDialogOpen(true);
+    setIsGeneratingEmail(true);
+
+    try {
+      const portalUrl = `${window.location.origin}/portal/${estimate.id}`;
+      const draft = await generateEstimateEmail({
+        customerName: estimate.customerSnapshot?.name || "Valued Client",
+        estimateTotal: estimate.totals.total,
+        portalUrl: portalUrl,
+        businessName: "Evergreen Fencing Co.",
+      });
+      setEmailDraft(draft);
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Email Draft Error", description: "Could not generate email preview.", variant: "destructive" });
+    } finally {
+      setIsGeneratingEmail(false);
+    }
+  };
+
+  const handleFinalSend = () => {
+    if (!tenantId || !activeEstimate) return;
+    
+    setIsSendingEmail(true);
+    const docRef = doc(firestore, 'tenants', tenantId, 'estimates', activeEstimate.id);
+    
+    // 1. Update status in Firestore
+    updateDocumentNonBlocking(docRef, {
+      status: 'sent',
+      sentAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
+
+    // 2. Log delivery intent (Simulation)
+    console.log(`PROTOTYPE LOG: Sending email to ${activeEstimate.customerSnapshot?.email}`);
+    console.log(`Subject: ${emailDraft.subject}`);
+    console.log(`Body: ${emailDraft.body}`);
+
+    setTimeout(() => {
+      setIsSendingEmail(false);
+      setIsEmailDialogOpen(false);
+      toast({
+        title: "Estimate Sent",
+        description: `Successfully sent to ${activeEstimate.customerSnapshot?.name}. Status updated to SENT.`,
+      });
+    }, 1000);
   };
 
   const handleShare = (id: string) => {
@@ -175,7 +235,7 @@ export default function EstimatesPage() {
                         variant="ghost" 
                         size="icon" 
                         title="Send"
-                        onClick={() => handleSend(est.id, est.customerSnapshot?.name || '')}
+                        onClick={() => handleOpenSendDialog(est)}
                         className="h-8 w-8 text-slate-500 hover:text-primary"
                       >
                         <Send className="h-4 w-4" />
@@ -197,6 +257,61 @@ export default function EstimatesPage() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              Send Estimate to Client
+            </DialogTitle>
+            <DialogDescription>
+              Review the AI-generated email draft for {activeEstimate?.customerSnapshot?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {isGeneratingEmail ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Drafting personalized email...</p>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="grid gap-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Subject Line</label>
+                <Input 
+                  value={emailDraft.subject} 
+                  onChange={e => setEmailDraft({...emailDraft, subject: e.target.value})}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Email Body</label>
+                <Textarea 
+                  className="min-h-[250px] text-sm leading-relaxed"
+                  value={emailDraft.body}
+                  onChange={e => setEmailDraft({...emailDraft, body: e.target.value})}
+                />
+              </div>
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex gap-3">
+                <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0" />
+                <p className="text-[10px] text-amber-800 leading-tight">
+                  <strong>PROTOTYPE MODE:</strong> Confirming "Send" will update the estimate status to SENT. Actual email delivery is currently simulated in this preview environment.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setIsEmailDialogOpen(false)} disabled={isSendingEmail}>
+              <X className="h-4 w-4 mr-2" /> Cancel
+            </Button>
+            <Button onClick={handleFinalSend} disabled={isSendingEmail || isGeneratingEmail} className="gap-2">
+              {isSendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Send Estimate Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

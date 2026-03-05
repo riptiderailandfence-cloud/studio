@@ -254,17 +254,13 @@ function NewEstimateContent() {
     
     const laborCost = activeManHours * avgHourlyRate;
     
-    // CALCULATION LOGIC:
-    // Basis = (Material Total + Material Tax + Labor Cost + Demo Cost)
     const materialTax = materialsTotal * salesTaxRate;
     const costBasis = materialsTotal + materialTax + laborCost + removalTotal;
     
     let finalTotal = 0;
     if (pricingMethod === 'margin') {
-      // Formula: Total = Basis / (1 - Margin %)
       finalTotal = (1 - sProfit <= 0) ? costBasis : costBasis / (1 - sProfit);
     } else {
-      // Formula: Total = Basis * (1 + Markup %)
       finalTotal = costBasis * (1 + sProfit);
     }
 
@@ -328,7 +324,7 @@ function NewEstimateContent() {
         total: totals.finalTotal,
         depositRequired: totals.deposit
       },
-      status: 'sent',
+      status: 'draft',
       clientAccessToken: crypto.randomUUID(),
       createdAt: serverTimestamp(), 
       updatedAt: serverTimestamp() 
@@ -338,7 +334,7 @@ function NewEstimateContent() {
     addDocumentNonBlocking(colRef, estimateData);
 
     setIsSaving(false);
-    toast({ title: "Estimate Created", description: `Saved and ready for ${selectedCustomer?.name}` });
+    toast({ title: "Estimate Saved", description: `Quote for ${selectedCustomer?.name} has been saved to drafts.` });
     router.push("/estimates");
   };
 
@@ -366,7 +362,7 @@ function NewEstimateContent() {
             </Button>
           ) : (
             <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleSaveEstimate} disabled={isSaving || !tenantId}>
-              {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Save & Send Quote"}
+              {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Save Estimate"}
             </Button>
           )}
         </div>
@@ -623,7 +619,6 @@ function NewEstimateContent() {
 
           {step === 5 && (
             <div className="grid lg:grid-cols-12 gap-8">
-              {/* Calculations Worksheet Left */}
               <div className="lg:col-span-5 space-y-6">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="bg-slate-50 border rounded-xl p-4">
@@ -741,7 +736,6 @@ function NewEstimateContent() {
                 </div>
               </div>
 
-              {/* Material Details Right */}
               <div className="lg:col-span-7 border rounded-2xl overflow-hidden bg-white">
                 <ScrollArea className="h-[700px]">
                   <div className="p-8 space-y-10">

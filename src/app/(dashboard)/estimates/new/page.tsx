@@ -297,7 +297,9 @@ function NewEstimateContent() {
       avgHourlyRate,
       fenceItems,
       postItems,
-      gateItems
+      gateItems,
+      costBasis,
+      baseWithOverhead
     };
   }, [sections, gates, demos, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap, manualManHours]);
 
@@ -726,8 +728,32 @@ function NewEstimateContent() {
 
                 <div className="bg-slate-900 text-white rounded-xl p-6 mt-8">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-black uppercase tracking-widest opacity-60">Total ({pricingMethod === 'margin' ? 'Cost Basis / (1 - Margin %)' : 'Cost Basis * (1 + Markup %)'})</span>
+                    <span className="text-xs font-black uppercase tracking-widest opacity-60">
+                      Project Total ({pricingMethod === 'margin' ? 'Margin Strategy' : 'Markup Strategy'})
+                    </span>
                     <span className="text-2xl font-black font-mono">${totals.finalTotal.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-[10px] uppercase tracking-wider text-slate-400">
+                    <div className="flex justify-between">
+                      <span>Total Costs (Mat + Tax + Labor + Demo)</span>
+                      <span className="font-mono text-slate-300">${(totals.materialsTotal + totals.tax + totals.laborCost + totals.removalTotal).toFixed(2)}</span>
+                    </div>
+                    {overheadPct > 0 && (
+                      <div className="flex justify-between italic">
+                        <span>+ { (overheadPct * 100).toFixed(1) }% Overhead</span>
+                        <span className="font-mono text-slate-300">${((totals.materialsTotal + totals.tax + totals.laborCost + totals.removalTotal) * overheadPct).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-white font-bold pt-1">
+                      <span>Basis for Profit</span>
+                      <span className="font-mono">${totals.baseWithOverhead.toFixed(2)}</span>
+                    </div>
+                    <div className="pt-2 border-t border-white/5 text-[9px] leading-tight normal-case italic text-slate-500">
+                      Math: {pricingMethod === 'margin' 
+                        ? `Basis / (1 - ${(profitPct * 100).toFixed(0)}%)` 
+                        : `Basis * (1 + ${(profitPct * 100).toFixed(0)}%)`}
+                    </div>
                   </div>
                 </div>
               </div>

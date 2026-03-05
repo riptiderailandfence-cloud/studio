@@ -114,6 +114,21 @@ export default function ProfilePage() {
   const displayName = profile?.firstName ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "User");
   const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
 
+  const getJoinedDate = () => {
+    if (!profile?.createdAt) return 'Recently';
+    try {
+      // Handle Firestore Timestamp
+      const d = typeof profile.createdAt.toDate === 'function' 
+        ? profile.createdAt.toDate() 
+        : (profile.createdAt.seconds ? new Date(profile.createdAt.seconds * 1000) : new Date(profile.createdAt));
+      
+      if (isNaN(d.getTime())) return 'Recently';
+      return d.toLocaleDateString();
+    } catch {
+      return 'Recently';
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div>
@@ -156,7 +171,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <UserIcon className="h-4 w-4" />
-                  <span>Joined {profile?.createdAt ? new Date(profile.createdAt.seconds * 1000).toLocaleDateString() : 'Recently'}</span>
+                  <span>Joined {getJoinedDate()}</span>
                 </div>
               </div>
             </CardContent>

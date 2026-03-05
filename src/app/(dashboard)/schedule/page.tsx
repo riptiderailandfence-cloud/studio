@@ -72,14 +72,30 @@ export default function SchedulePage() {
   const selectedDateEvents = useMemo(() => {
     if (!date || !mounted) return [];
     return events.filter(e => {
-      const eventDate = new Date(e.date);
-      return (
-        eventDate.getDate() === date.getDate() &&
-        eventDate.getMonth() === date.getMonth() &&
-        eventDate.getFullYear() === date.getFullYear()
-      );
+      try {
+        const eventDate = new Date(e.date);
+        if (isNaN(eventDate.getTime())) return false;
+        return (
+          eventDate.getDate() === date.getDate() &&
+          eventDate.getMonth() === date.getMonth() &&
+          eventDate.getFullYear() === date.getFullYear()
+        );
+      } catch {
+        return false;
+      }
     });
   }, [date, events, mounted]);
+
+  const safeFormat = (dateValue: any, formatStr: string) => {
+    if (!dateValue) return '---';
+    try {
+      const d = new Date(dateValue);
+      if (isNaN(d.getTime())) return '---';
+      return format(d, formatStr);
+    } catch {
+      return '---';
+    }
+  };
 
   const handleConnectGoogle = () => {
     const toastId = toast({
@@ -233,8 +249,13 @@ export default function SchedulePage() {
               className="rounded-md border shadow-sm"
               modifiers={{
                 hasEvent: (d) => events.some(e => {
-                  const ed = new Date(e.date);
-                  return ed.getDate() === d.getDate() && ed.getMonth() === d.getMonth();
+                  try {
+                    const ed = new Date(e.date);
+                    if (isNaN(ed.getTime())) return false;
+                    return ed.getDate() === d.getDate() && ed.getMonth() === d.getMonth();
+                  } catch {
+                    return false;
+                  }
                 })
               }}
               modifiersClassNames={{
@@ -249,7 +270,7 @@ export default function SchedulePage() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>
-                  {date ? format(date, 'MMMM do, yyyy') : 'Agenda'}
+                  {date ? safeFormat(date, 'MMMM do, yyyy') : 'Agenda'}
                 </CardTitle>
                 <CardDescription>
                   {selectedDateEvents.length} events scheduled for this day
@@ -280,7 +301,7 @@ export default function SchedulePage() {
                       </div>
                       <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {format(new Date(event.date), 'h:mm a')}
+                          <Clock className="h-3 w-3" /> {safeFormat(event.date, 'h:mm a')}
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" /> {event.customerName}
@@ -313,13 +334,20 @@ export default function SchedulePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {events.filter(e => new Date(e.date) > new Date()).slice(0, 3).map(e => (
+                {events.filter(e => {
+                  try {
+                    const ed = new Date(e.date);
+                    return !isNaN(ed.getTime()) && ed > new Date();
+                  } catch {
+                    return false;
+                  }
+                }).slice(0, 3).map(e => (
                   <div key={e.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
                     <div className="flex items-center gap-3">
                       <div className={`h-2 w-2 rounded-full ${e.type === 'estimate' ? 'bg-blue-500' : 'bg-green-500'}`} />
                       <span className="font-medium">{e.title}</span>
                     </div>
-                    <span className="text-muted-foreground">{format(new Date(e.date), 'MMM d')}</span>
+                    <span className="text-muted-foreground">{safeFormat(e.date, 'MMM d')}</span>
                   </div>
                 ))}
               </div>

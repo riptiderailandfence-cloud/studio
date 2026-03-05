@@ -101,6 +101,17 @@ export default function MessagesPage() {
     }
   }, [activeMessages]);
 
+  const safeFormat = (dateValue: any, formatStr: string) => {
+    if (!dateValue) return '---';
+    try {
+      const d = new Date(dateValue);
+      if (isNaN(d.getTime())) return '---';
+      return format(d, formatStr);
+    } catch {
+      return '---';
+    }
+  };
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
@@ -161,7 +172,7 @@ export default function MessagesPage() {
                   <div className="flex justify-between items-start mb-1">
                     <span className="font-bold text-sm truncate">{thread.customerName}</span>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {format(new Date(thread.lastTimestamp), 'h:mm a')}
+                      {safeFormat(thread.lastTimestamp, 'h:mm a')}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
@@ -240,7 +251,7 @@ export default function MessagesPage() {
                     "flex items-center gap-1.5 text-[10px] text-muted-foreground",
                     msg.isMe ? "justify-end" : "justify-start"
                   )}>
-                    {format(new Date(msg.timestamp), 'h:mm a')}
+                    {safeFormat(msg.timestamp, 'h:mm a')}
                     {msg.isMe && (
                       <span>
                         {msg.status === 'read' ? (

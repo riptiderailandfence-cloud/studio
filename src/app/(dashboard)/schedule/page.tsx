@@ -16,7 +16,8 @@ import {
   Link2,
   ExternalLink,
   CalendarCheck,
-  Loader2
+  Loader2,
+  Share2
 } from "lucide-react";
 import { SAMPLE_EVENTS, SAMPLE_CUSTOMERS } from "@/lib/mock-data";
 import { ScheduleEvent } from "@/lib/types";
@@ -47,7 +48,7 @@ import { doc } from "firebase/firestore";
 export default function SchedulePage() {
   const { user } = useUser();
   const firestore = useFirestore();
-  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [date, setDate] = useState<Date | undefined>(new Date());
   const [events, setEvents] = useState<ScheduleEvent[]>(SAMPLE_EVENTS);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -61,7 +62,6 @@ export default function SchedulePage() {
 
   useEffect(() => {
     setMounted(true);
-    setDate(new Date());
   }, []);
 
   const [newEvent, setNewEvent] = useState<Partial<ScheduleEvent>>({
@@ -144,10 +144,10 @@ export default function SchedulePage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Schedule</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Schedule</h2>
           <p className="text-muted-foreground">Manage job-site visits, installs, and crew logistics.</p>
         </div>
         <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
@@ -216,18 +216,18 @@ export default function SchedulePage() {
       </div>
 
       {!isGoogleConnected && (
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="border-primary/10 bg-slate-50">
           <CardContent className="flex items-center justify-between p-6">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-primary" />
+              <div className="h-12 w-12 rounded-xl bg-white border shadow-sm flex items-center justify-center text-primary">
+                <CalendarCheck className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-bold">Sync with Google Calendar</h3>
+                <h3 className="font-bold text-slate-900">Sync with Google Calendar</h3>
                 <p className="text-sm text-muted-foreground">Keep your field schedule in sync across all your devices.</p>
               </div>
             </div>
-            <Button onClick={handleConnectGoogle} variant="outline" className="gap-2 bg-background" disabled={!tenantId}>
+            <Button onClick={handleConnectGoogle} variant="outline" className="gap-2 bg-white" disabled={!tenantId}>
               <Link2 className="h-4 w-4" />
               Connect Account
             </Button>
@@ -236,17 +236,18 @@ export default function SchedulePage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-12">
-        <Card className="lg:col-span-4">
+        {/* Left: Calendar Card */}
+        <Card className="lg:col-span-4 border shadow-sm h-fit">
           <CardHeader>
-            <CardTitle>Calendar Overview</CardTitle>
+            <CardTitle className="text-xl font-bold">Calendar Overview</CardTitle>
             <CardDescription>Select a date to view scheduled visits.</CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center">
+          <CardContent className="flex flex-col items-center pb-8">
             <Calendar
               mode="single"
               selected={date}
               onSelect={setDate}
-              className="rounded-md border shadow-sm"
+              className="rounded-md border-none shadow-none"
               modifiers={{
                 hasEvent: (d) => events.some(e => {
                   try {
@@ -259,95 +260,104 @@ export default function SchedulePage() {
                 })
               }}
               modifiersClassNames={{
-                hasEvent: "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-primary after:rounded-full"
+                hasEvent: "font-bold text-primary underline"
               }}
             />
           </CardContent>
         </Card>
 
+        {/* Right: Lists */}
         <div className="lg:col-span-8 space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+          {/* Daily Agenda */}
+          <Card className="border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50">
               <div>
-                <CardTitle>
-                  {date ? safeFormat(date, 'MMMM do, yyyy') : 'Agenda'}
+                <CardTitle className="text-2xl font-black">
+                  {date ? safeFormat(date, 'MMMM do, yyyy') : 'Daily Agenda'}
                 </CardTitle>
                 <CardDescription>
-                  {selectedDateEvents.length} events scheduled for this day
+                  {selectedDateEvents.length} {selectedDateEvents.length === 1 ? 'event' : 'events'} scheduled for this day
                 </CardDescription>
               </div>
               {selectedDateEvents.length > 0 && (
-                <Button variant="ghost" size="sm" className="gap-2">
+                <Button variant="ghost" size="sm" className="gap-2 font-bold text-slate-600">
                   <ExternalLink className="h-4 w-4" />
                   Open in Google
                 </Button>
               )}
             </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedDateEvents.length > 0 ? (
-                selectedDateEvents.map((event) => (
-                  <div key={event.id} className="flex items-start gap-4 p-4 rounded-xl border bg-card hover:bg-secondary/20 transition-colors group">
-                    <div className={`mt-1 h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
-                      event.type === 'estimate' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-                    }`}>
-                      {event.type === 'estimate' ? <Search className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-bold">{event.title}</h4>
-                        <Badge variant={event.type === 'estimate' ? 'outline' : 'default'} className="capitalize">
-                          {event.type}
-                        </Badge>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {selectedDateEvents.length > 0 ? (
+                  selectedDateEvents.map((event) => (
+                    <div key={event.id} className="flex items-start gap-4 p-5 rounded-2xl border bg-white hover:bg-slate-50 transition-colors group relative">
+                      <div className={`mt-1 h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                        event.type === 'estimate' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
+                      }`}>
+                        {event.type === 'estimate' ? <Search className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
                       </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {safeFormat(event.date, 'h:mm a')}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" /> {event.customerName}
-                        </span>
-                        {event.notes && (
-                          <span className="flex items-center gap-1 italic">
-                            {event.notes}
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        <div className="flex items-center justify-between gap-4">
+                          <h4 className="font-bold text-lg text-slate-900 truncate">{event.title}</h4>
+                          <Badge variant="secondary" className="capitalize px-3 py-0.5 font-bold text-[10px] tracking-wider uppercase">
+                            {event.type}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-4 text-xs font-medium text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5" /> {safeFormat(event.date, 'h:mm a')}
                           </span>
-                        )}
+                          <span className="flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5" /> {event.customerName}
+                          </span>
+                          {event.notes && (
+                            <span className="flex items-center gap-1.5 italic text-slate-400">
+                              {event.notes}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
+                      <CalendarDays className="h-8 w-8 text-slate-200" />
+                    </div>
+                    <p className="text-slate-500 font-medium">Nothing scheduled for this day.</p>
+                    <Button variant="link" onClick={() => setIsAddEventOpen(true)} className="mt-1 font-bold">Schedule something</Button>
                   </div>
-                ))
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl text-muted-foreground">
-                  <CalendarDays className="h-10 w-10 opacity-20 mb-4" />
-                  <p>Nothing scheduled for this day.</p>
-                  <Button variant="link" onClick={() => setIsAddEventOpen(true)} disabled={!tenantId}>Schedule something</Button>
-                </div>
-              )}
+                )}
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Jobs</CardTitle>
+          {/* Upcoming Jobs */}
+          <Card className="border shadow-sm">
+            <CardHeader className="bg-slate-50/50 border-b">
+              <CardTitle className="text-xl font-bold">Upcoming Jobs</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="p-0">
+              <div className="divide-y">
                 {events.filter(e => {
                   try {
                     const ed = new Date(e.date);
-                    return !isNaN(ed.getTime()) && ed > new Date();
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return !isNaN(ed.getTime()) && ed >= today;
                   } catch {
                     return false;
                   }
-                }).slice(0, 3).map(e => (
-                  <div key={e.id} className="flex items-center justify-between p-3 border rounded-lg text-sm">
+                })
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .slice(0, 5)
+                .map(e => (
+                  <div key={e.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className={`h-2 w-2 rounded-full ${e.type === 'estimate' ? 'bg-blue-500' : 'bg-green-500'}`} />
-                      <span className="font-medium">{e.title}</span>
+                      <div className={`h-2.5 w-2.5 rounded-full ${e.type === 'estimate' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                      <span className="font-semibold text-slate-700">{e.title}</span>
                     </div>
-                    <span className="text-muted-foreground">{safeFormat(e.date, 'MMM d')}</span>
+                    <span className="text-sm font-bold text-slate-400 font-mono">{safeFormat(e.date, 'MMM d')}</span>
                   </div>
                 ))}
               </div>

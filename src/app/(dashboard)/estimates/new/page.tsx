@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -129,7 +128,6 @@ function NewEstimateContent() {
   const [demos, setDemos] = useState<DemoEntry[]>([]);
   
   // Financial State
-  const [overheadPct, setOverheadPct] = useState<number>(0.10); 
   const [profitPct, setProfitPct] = useState<number>(0.30); 
   const [pricingMethod, setPricingMethod] = useState<'markup' | 'margin'>('markup');
   const [manualManHours, setManualManHours] = useState<number | null>(null);
@@ -142,7 +140,6 @@ function NewEstimateContent() {
 
   useEffect(() => {
     if (settings) {
-      setOverheadPct((settings.overheadPct || 10) / 100);
       const defaultVal = settings.defaultPercentage !== undefined ? settings.defaultPercentage : (settings.profitPct || 20);
       setProfitPct(defaultVal / 100);
       setPricingMethod((settings.pricingMethod as 'markup' | 'margin') || 'markup');
@@ -200,7 +197,6 @@ function NewEstimateContent() {
     const postItems: any[] = [];
     const gateItems: any[] = [];
 
-    const sOverhead = isNaN(overheadPct) ? 0 : overheadPct;
     const sProfit = isNaN(profitPct) ? 0 : profitPct;
     const salesTaxRate = (settings?.salesTaxRate || 0) / 100; 
 
@@ -263,16 +259,13 @@ function NewEstimateContent() {
     const materialTax = materialsTotal * salesTaxRate;
     const costBasis = materialsTotal + materialTax + laborCost + removalTotal;
     
-    // Apply overhead to the basis
-    const baseWithOverhead = costBasis * (1 + sOverhead);
-    
     let finalTotal = 0;
     if (pricingMethod === 'margin') {
       // Formula: Total = Basis / (1 - Margin %)
-      finalTotal = (1 - sProfit <= 0) ? baseWithOverhead : baseWithOverhead / (1 - sProfit);
+      finalTotal = (1 - sProfit <= 0) ? costBasis : costBasis / (1 - sProfit);
     } else {
       // Formula: Total = Basis * (1 + Markup %)
-      finalTotal = baseWithOverhead * (1 + sProfit);
+      finalTotal = costBasis * (1 + sProfit);
     }
 
     const sellTotal = finalTotal; 
@@ -298,10 +291,9 @@ function NewEstimateContent() {
       fenceItems,
       postItems,
       gateItems,
-      costBasis,
-      baseWithOverhead
+      costBasis
     };
-  }, [sections, gates, demos, profitPct, overheadPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap, manualManHours]);
+  }, [sections, gates, demos, profitPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap, manualManHours]);
 
   const handleSaveEstimate = () => {
     if (!tenantId || !selectedCustomerId || !jobAddress) {
@@ -711,7 +703,7 @@ function NewEstimateContent() {
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-slate-600">
                       <Percent className="h-4 w-4" /> 
-                      {pricingMethod === 'markup' ? 'Markup' : 'Profit Margin'}
+                      {pricingMethod === 'markup' ? 'Markup' : 'Gross Margin'}
                     </Label>
                     <div className="relative">
                       <Input 
@@ -723,6 +715,7 @@ function NewEstimateContent() {
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
                     </div>
+                    <p className="text-[10px] text-muted-foreground italic">Gross margin accounts for overhead and profit.</p>
                   </div>
                 </div>
 
@@ -735,24 +728,14 @@ function NewEstimateContent() {
                   </div>
                   
                   <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-[10px] uppercase tracking-wider text-slate-400">
-                    <div className="flex justify-between">
-                      <span>Total Costs (Mat + Tax + Labor + Demo)</span>
-                      <span className="font-mono text-slate-300">${(totals.materialsTotal + totals.tax + totals.laborCost + totals.removalTotal).toFixed(2)}</span>
-                    </div>
-                    {overheadPct > 0 && (
-                      <div className="flex justify-between italic">
-                        <span>+ { (overheadPct * 100).toFixed(1) }% Overhead</span>
-                        <span className="font-mono text-slate-300">${((totals.materialsTotal + totals.tax + totals.laborCost + totals.removalTotal) * overheadPct).toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-white font-bold pt-1">
-                      <span>Basis for Profit</span>
-                      <span className="font-mono">${totals.baseWithOverhead.toFixed(2)}</span>
+                    <div className="flex justify-between text-white font-bold">
+                      <span>Total Base Costs (Mat + Tax + Labor + Demo)</span>
+                      <span className="font-mono">${totals.costBasis.toFixed(2)}</span>
                     </div>
                     <div className="pt-2 border-t border-white/5 text-[9px] leading-tight normal-case italic text-slate-500">
                       Math: {pricingMethod === 'margin' 
-                        ? `Basis / (1 - ${(profitPct * 100).toFixed(0)}%)` 
-                        : `Basis * (1 + ${(profitPct * 100).toFixed(0)}%)`}
+                        ? `Base Cost / (1 - ${(profitPct * 100).toFixed(0)}%)` 
+                        : `Base Cost * (1 + ${(profitPct * 100).toFixed(0)}%)`}
                     </div>
                   </div>
                 </div>
@@ -843,15 +826,9 @@ function NewEstimateContent() {
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Overhead %</Label>
-                        <Input type="number" step="0.01" value={(overheadPct * 100).toFixed(1)} onChange={(e) => setOverheadPct(parseFloat(e.target.value) / 100 || 0)} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>{pricingMethod === 'markup' ? 'Markup %' : 'Profit % (Margin)'}</Label>
-                        <Input type="number" step="0.01" value={(profitPct * 100).toFixed(1)} onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} />
-                      </div>
+                    <div className="grid gap-2">
+                      <Label>{pricingMethod === 'markup' ? 'Markup %' : 'Gross Margin %'}</Label>
+                      <Input type="number" step="0.01" value={(profitPct * 100).toFixed(1)} onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} />
                     </div>
                     <div className="flex gap-2">
                       <Button 

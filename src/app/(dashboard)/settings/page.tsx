@@ -63,8 +63,7 @@ export default function SettingsPage() {
     biddingMethod: "footage",
     defaultPercentage: 30,
     salesTaxRate: 8.25,
-    overheadPct: 10,
-    profitPct: 20,
+    profitPct: 30,
     crewSize: 2,
     avgHourlyRate: 35,
     dailyProduction: 100,
@@ -218,7 +217,7 @@ export default function SettingsPage() {
                     <select 
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       value={formData.pricingMethod}
-                      onChange={e => setFormData({...formData, pricingMethod: e.target.value})}
+                      onChange={e => setFormData({...formData, pricingMethod: e.target.value as any})}
                     >
                       <option value="margin">Margin % (Profit / Revenue)</option>
                       <option value="markup">Markup % (Profit / Cost)</option>
@@ -241,24 +240,14 @@ export default function SettingsPage() {
                       onChange={e => setFormData({...formData, salesTaxRate: parseFloat(e.target.value) || 0})}
                     />
                   </div>
-                </div>
-
-                <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6 border-t mt-4">
                   <div className="grid gap-2">
-                    <Label className="flex items-center gap-2"><Briefcase className="h-3 w-3" /> Default Overhead (%)</Label>
-                    <Input 
-                      type="number" 
-                      value={formData.overheadPct} 
-                      onChange={e => setFormData({...formData, overheadPct: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Default Profit (%)</Label>
+                    <Label className="flex items-center gap-2"><TrendingUp className="h-3 w-3" /> Default Gross Margin (%)</Label>
                     <Input 
                       type="number" 
                       value={formData.profitPct} 
                       onChange={e => setFormData({...formData, profitPct: parseFloat(e.target.value) || 0})}
                     />
+                    <p className="text-[10px] text-muted-foreground">Accounts for overhead and profit together.</p>
                   </div>
                 </div>
               </div>

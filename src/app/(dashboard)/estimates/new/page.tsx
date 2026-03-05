@@ -703,7 +703,7 @@ function NewEstimateContent() {
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-slate-600">
                       <Percent className="h-4 w-4" /> 
-                      {pricingMethod === 'markup' ? 'Markup' : 'Gross Margin'}
+                      {pricingMethod === 'markup' ? 'Markup' : 'Profit Margin'}
                     </Label>
                     <div className="relative">
                       <Input 
@@ -827,7 +827,7 @@ function NewEstimateContent() {
                 <CardContent className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="grid gap-2">
-                      <Label>{pricingMethod === 'markup' ? 'Markup %' : 'Gross Margin %'}</Label>
+                      <Label>{pricingMethod === 'markup' ? 'Markup %' : 'Profit Margin %'}</Label>
                       <Input type="number" step="0.01" value={(profitPct * 100).toFixed(1)} onChange={(e) => setProfitPct(parseFloat(e.target.value) / 100 || 0)} />
                     </div>
                     <div className="flex gap-2">

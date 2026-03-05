@@ -79,6 +79,18 @@ export default function EstimatesPage() {
     });
   };
 
+  const safeFormatDate = (dateValue: any) => {
+    if (!dateValue) return '---';
+    try {
+      // Handle Firestore Timestamp objects
+      const d = typeof dateValue.toDate === 'function' ? dateValue.toDate() : new Date(dateValue);
+      if (isNaN(d.getTime())) return '---';
+      return format(d, 'MMM d, yyyy');
+    } catch (e) {
+      return '---';
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -132,7 +144,7 @@ export default function EstimatesPage() {
                 <TableRow key={est.id} className="hover:bg-slate-50/50 transition-colors">
                   <TableCell className="font-mono text-xs text-slate-500">{est.id.slice(-8).toUpperCase()}</TableCell>
                   <TableCell className="font-semibold text-slate-900">{est.customerSnapshot?.name || 'Unknown'}</TableCell>
-                  <TableCell className="text-slate-600">{est.createdAt ? format(new Date(est.createdAt), 'MMM d, yyyy') : '---'}</TableCell>
+                  <TableCell className="text-slate-600">{safeFormatDate(est.createdAt)}</TableCell>
                   <TableCell className="font-mono font-bold text-slate-900">${est.totals.total.toFixed(2)}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANTS[est.status] || "outline"} className="font-bold">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { doc, serverTimestamp, collection } from 'firebase/firestore';
 
 /**
  * Ensures a user document exists in Firestore for the authenticated user.
@@ -11,23 +11,29 @@ import { doc, serverTimestamp } from 'firebase/firestore';
 export function UserInitializer({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  
-  const userRef = useMemoFirebase(() => {
+
+  // Memoize the document reference for the user profile
+  const userProfileRef = useMemoFirebase(() => {
     return user ? doc(firestore, 'users', user.uid) : null;
   }, [firestore, user]);
 
-  const { data: profile, isLoading: isProfileLoading } = useDoc(userRef);
+  const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
   const [hasAttemptedInit, setHasAttemptedInit] = useState(false);
 
   useEffect(() => {
-    // Only attempt to initialize once per session if profile is missing
+    // Only attempt to initialize once per session if profile is missing for a logged-in user
     if (!isUserLoading && user && !isProfileLoading && !profile && !hasAttemptedInit) {
       setHasAttemptedInit(true);
-      const docRef = doc(firestore, 'users', user.uid);
+      const userRef = doc(firestore, 'users', user.uid);
       
-      setDocumentNonBlocking(docRef, {
+      // Generate a new tenantId if one doesn't exist for this user
+      // In a real app, this might involve a UI flow for creating or joining a tenant.
+      // For now, we'll auto-assign a new, unique tenant ID.
+      const newTenantId = doc(collection(firestore, 'tenants')).id; 
+
+      setDocumentNonBlocking(userRef, {
         id: user.uid,
-        tenantId: 'tenant_1', // Default tenant for prototype mode
+        tenantId: newTenantId, // Assign a dynamically generated unique tenantId
         email: user.email || '',
         name: user.displayName || user.email?.split('@')[0] || 'New User',
         role: 'Owner',

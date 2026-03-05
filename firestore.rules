@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -79,7 +80,6 @@ service cloud.firestore {
       allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
     }
 
-    // FIXED STYLE PATHS
     match /tenants/{tenantId}/fenceStyles/{styleId} {
       allow get, list: if isTenantMember(tenantId);
       allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
@@ -130,5 +130,20 @@ service cloud.firestore {
       allow delete: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
     }
 
+    // Rules for Chat Threads
+    match /tenants/{tenantId}/chats/{chatId} {
+      allow read: if isTenantMember(tenantId);
+      allow create: if isTenantMember(tenantId) && matchesPathTenant(tenantId);
+      allow update: if isExistingTenantData(tenantId) && tenantIdImmutable();
+      allow delete: if false;
+
+      // Rules for Messages within a Chat Thread
+      match /messages/{messageId} {
+        allow read: if isTenantMember(tenantId);
+        // Allow creation for tenant members AND simulate client 'client' sender type
+        allow create: if isTenantMember(tenantId) || (request.resource.data.senderId == 'client');
+        allow update, delete: if false;
+      }
+    }
   }
 }

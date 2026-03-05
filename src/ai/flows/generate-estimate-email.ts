@@ -30,7 +30,7 @@ Your task is to write a polite, professional, and clear email to a client, {{{cu
 
 The email should:
 1. Mention the business name: {{{businessName}}}.
-2. State the total amount of the estimate: ${{estimateTotal}}.
+2. State the total amount of the estimate: \$ {{{estimateTotal}}}.
 3. Provide them with a clear Call to Action to view the full details and pay their deposit via their private portal link: {{{portalUrl}}}.
 4. Be concise and friendly.
 

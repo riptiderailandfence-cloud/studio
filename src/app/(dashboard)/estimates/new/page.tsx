@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
@@ -31,8 +32,19 @@ import {
   Percent,
   Receipt,
   Layers,
-  Layout
+  Layout,
+  X,
+  Save
 } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { PricingRecommendation } from "@/components/estimates/pricing-recommendation";
 import { MapMeasurementTool } from "@/components/estimates/map-measurement-tool";
 import { toast } from "@/hooks/use-toast";
@@ -74,6 +86,17 @@ function NewEstimateContent() {
   const [step, setStep] = useState(1);
   const [mounted, setMounted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // New Customer State
+  const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  const [newCustomerData, setNewCustomerData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: ""
+  });
 
   const userRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -291,6 +314,46 @@ function NewEstimateContent() {
     };
   }, [sections, gates, demos, profitPct, fenceStyles, postStyles, gateStyles, pricingMethod, settings, materialsMap, manualManHours]);
 
+  const handleCreateNewCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantId || !newCustomerData.firstName || !newCustomerData.lastName || !newCustomerData.email) {
+      toast({ title: "Missing Info", description: "Please provide name and email.", variant: "destructive" });
+      return;
+    }
+
+    setIsCreatingCustomer(true);
+    try {
+      const colRef = collection(firestore, 'tenants', tenantId, 'customers');
+      const res = await addDocumentNonBlocking(colRef, {
+        tenantId,
+        firstName: newCustomerData.firstName,
+        lastName: newCustomerData.lastName,
+        name: `${newCustomerData.firstName} ${newCustomerData.lastName}`,
+        email: newCustomerData.email,
+        phone: newCustomerData.phone,
+        address: newCustomerData.address,
+        pipelineStage: 'LEAD',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      if (res) {
+        setSelectedCustomerId(res.id);
+        if (newCustomerData.address) {
+          setJobAddress(newCustomerData.address);
+        }
+        setIsNewCustomerDialogOpen(false);
+        setNewCustomerData({ firstName: "", lastName: "", email: "", phone: "", address: "" });
+        toast({ title: "Customer Created", description: "Added and selected for this estimate." });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Error", description: "Could not create customer.", variant: "destructive" });
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
+
   const handleSaveEstimate = () => {
     if (!tenantId || !selectedCustomerId || !jobAddress) {
       toast({ title: "Missing Information", description: "Please provide client and address details.", variant: "destructive" });
@@ -372,11 +435,80 @@ function NewEstimateContent() {
         <div className="lg:col-span-8 space-y-6">
           {step === 1 && (
             <Card className="border-2 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <Users className="h-5 w-5" /> Client Information
-                </CardTitle>
-                <CardDescription>Select an existing customer or create one in the CRM first.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div className="space-y-1">
+                  <CardTitle className="flex items-center gap-2 text-primary">
+                    <Users className="h-5 w-5" /> Client Information
+                  </CardTitle>
+                  <CardDescription>Select an existing customer or create a new one.</CardDescription>
+                </div>
+                
+                <Dialog open={isNewCustomerDialogOpen} onOpenChange={setIsNewCustomerDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Plus className="h-4 w-4" /> New Customer
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <form onSubmit={handleCreateNewCustomer}>
+                      <DialogHeader>
+                        <DialogTitle>Quick Add Customer</DialogTitle>
+                        <DialogDescription>Add a new contact to your CRM and select them for this estimate.</DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label>First Name</Label>
+                            <Input 
+                              value={newCustomerData.firstName} 
+                              onChange={e => setNewCustomerData({...newCustomerData, firstName: e.target.value})}
+                              required 
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Last Name</Label>
+                            <Input 
+                              value={newCustomerData.lastName} 
+                              onChange={e => setNewCustomerData({...newCustomerData, lastName: e.target.value})}
+                              required 
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Email</Label>
+                          <Input 
+                            type="email"
+                            value={newCustomerData.email} 
+                            onChange={e => setNewCustomerData({...newCustomerData, email: e.target.value})}
+                            required 
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Phone</Label>
+                          <Input 
+                            value={newCustomerData.phone} 
+                            onChange={e => setNewCustomerData({...newCustomerData, phone: e.target.value})}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Job Site Address</Label>
+                          <Input 
+                            value={newCustomerData.address} 
+                            onChange={e => setNewCustomerData({...newCustomerData, address: e.target.value})}
+                            placeholder="Street, City, State, ZIP"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setIsNewCustomerDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={isCreatingCustomer}>
+                          {isCreatingCustomer ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                          Create & Select
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-4">
@@ -697,8 +829,7 @@ function NewEstimateContent() {
 
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-slate-600">
-                      <Percent className="h-4 w-4" /> 
-                      {pricingMethod === 'markup' ? 'Markup' : 'Profit Margin'}
+                      {pricingMethod === 'markup' ? 'Markup' : 'Profit Margin'} %
                     </Label>
                     <div className="relative">
                       <Input 

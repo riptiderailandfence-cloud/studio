@@ -21,7 +21,9 @@ service cloud.firestore {
     }
 
     function isTenantMember(tenantId) {
-      return isSignedIn() && currentUserData().tenantId == tenantId;
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             currentUserData().tenantId == tenantId;
     }
 
     function hasRole(tenantId, roles) {
@@ -61,7 +63,7 @@ service cloud.firestore {
     match /tenants/{tenantId}/settings/general {
       allow get: if isTenantMember(tenantId);
       allow list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']) && matchesPathTenant(tenantId);
+      allow create: if isTenantMember(tenantId) && matchesPathTenant(tenantId);
       allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']) && tenantIdImmutable();
       allow delete: if false;
     }

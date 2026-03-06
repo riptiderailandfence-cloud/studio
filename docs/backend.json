@@ -817,6 +817,28 @@
         }
       },
       {
+        "path": "/tenants/{tenantId}/settings/general",
+        "definition": {
+          "entityName": "Settings",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "tenantId": { "type": "string" },
+              "businessName": { "type": "string" },
+              "email": { "type": "string" },
+              "pricingMethod": { "type": "string" },
+              "profitPct": { "type": "number" },
+              "salesTaxRate": { "type": "number" },
+              "updatedAt": { "type": "string", "format": "date-time" }
+            }
+          },
+          "description": "Stores general business settings and pricing defaults for a tenant.",
+          "params": [
+            { "name": "tenantId" }
+          ]
+        }
+      },
+      {
         "path": "/tenants/{tenantId}/chats/{chatId}",
         "definition": {
           "entityName": "Chat",

@@ -24,16 +24,20 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    // Only attempt to initialize once per session if profile is missing for a logged-in user
-    if (!isUserLoading && user && !isProfileLoading && !profile && !hasAttemptedInit) {
+    // 1. If we are still loading Auth or Profile, we aren't ready
+    if (isUserLoading || isProfileLoading) {
+      return;
+    }
+
+    // 2. If user is logged in but no profile exists, initialize them
+    if (user && !profile && !hasAttemptedInit) {
       setHasAttemptedInit(true);
       
-      // 1. Generate unique IDs for the new tenant
       const userRef = doc(firestore, 'users', user.uid);
       const newTenantId = doc(collection(firestore, 'tenants')).id; 
       const tenantName = user.displayName ? `${user.displayName}'s Fencing Co.` : 'My Fencing Business';
 
-      // 2. Initialize User Profile with tenant membership
+      // Initialize User Profile with tenant membership
       setDocumentNonBlocking(userRef, {
         id: user.uid,
         tenantId: newTenantId,
@@ -45,7 +49,7 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      // 3. Initialize Tenant Record
+      // Initialize Tenant Record
       const tenantRef = doc(firestore, 'tenants', newTenantId);
       setDocumentNonBlocking(tenantRef, {
         id: newTenantId,
@@ -55,7 +59,7 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      // 4. Initialize Default Settings (prevents permission errors on initial dashboard reads)
+      // Initialize Default Settings
       const settingsRef = doc(firestore, 'tenants', newTenantId, 'settings', 'general');
       setDocumentNonBlocking(settingsRef, {
         tenantId: newTenantId,
@@ -67,12 +71,13 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      // 5. Artificial delay to allow Firestore propagation before rendering app
-      // This helps mitigate race conditions between profile creation and rules checking
+      // Artificial delay to allow Firestore indexing propagation
       setTimeout(() => {
         setIsAuthReady(true);
-      }, 1500);
-    } else if (profile) {
+      }, 2000);
+    } 
+    // 3. If profile exists, check if it has a tenantId before signaling ready
+    else if (profile?.tenantId) {
       setIsAuthReady(true);
     }
   }, [user, isUserLoading, profile, isProfileLoading, firestore, hasAttemptedInit]);
@@ -84,7 +89,7 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
-            {profile ? "Loading workspace..." : "Configuring secure tenant..."}
+            {profile ? "Entering workspace..." : "Configuring your business..."}
           </p>
         </div>
       </div>

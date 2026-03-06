@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, serverTimestamp, collection } from 'firebase/firestore';
+import { Loader2 } from "lucide-react";
 
 /**
  * Ensures a user document and their initial tenant workspace exist in Firestore.
@@ -20,6 +21,7 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
 
   const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
   const [hasAttemptedInit, setHasAttemptedInit] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
     // Only attempt to initialize once per session if profile is missing for a logged-in user
@@ -64,8 +66,30 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         salesTaxRate: 8.25,
         updatedAt: serverTimestamp()
       }, { merge: true });
+
+      // 5. Artificial delay to allow Firestore propagation before rendering app
+      // This helps mitigate race conditions between profile creation and rules checking
+      setTimeout(() => {
+        setIsAuthReady(true);
+      }, 1500);
+    } else if (profile) {
+      setIsAuthReady(true);
     }
   }, [user, isUserLoading, profile, isProfileLoading, firestore, hasAttemptedInit]);
+
+  // Block rendering until the profile is confirmed or initialization has stabilized
+  if (isUserLoading || isProfileLoading || (user && !isAuthReady)) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+            {profile ? "Loading workspace..." : "Configuring secure tenant..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

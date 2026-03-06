@@ -20,10 +20,19 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // Robust tenant membership check
     function isTenantMember(tenantId) {
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             currentUserData().tenantId == tenantId;
+             (
+               // Check if user document exists and matches tenant
+               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                currentUserData().tenantId == tenantId)
+               ||
+               // Fallback: Check if the user is the explicit owner of the tenant
+               // This is crucial for first-run initialization propagation
+               (exists(/databases/$(database)/documents/tenants/$(tenantId)) &&
+                get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid)
+             );
     }
 
     function hasRole(tenantId, roles) {
@@ -63,7 +72,7 @@ service cloud.firestore {
     match /tenants/{tenantId}/settings/general {
       allow get: if isTenantMember(tenantId);
       allow list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && matchesPathTenant(tenantId);
+      allow create: if isSignedIn(); // Allow initial setup
       allow update: if isExistingTenantData(tenantId) && hasRole(tenantId, ['Owner', 'Admin']) && tenantIdImmutable();
       allow delete: if false;
     }

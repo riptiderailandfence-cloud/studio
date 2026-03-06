@@ -7,17 +7,12 @@ import { Button } from "@/components/ui/button";
 import { 
   Plus, 
   CalendarDays, 
-  CheckCircle2, 
   Clock, 
-  MapPin, 
   Users,
-  Search,
-  MoreVertical,
-  Link2,
   ExternalLink,
   CalendarCheck,
-  Loader2,
-  Share2
+  Link2,
+  Search
 } from "lucide-react";
 import { SAMPLE_EVENTS, SAMPLE_CUSTOMERS } from "@/lib/mock-data";
 import { ScheduleEvent } from "@/lib/types";
@@ -235,10 +230,10 @@ export default function SchedulePage() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-12">
-        {/* Left: Calendar Card */}
-        <Card className="lg:col-span-4 border shadow-sm h-fit">
-          <CardHeader>
+      {/* Centered Calendar at the top */}
+      <div className="flex justify-center">
+        <Card className="border shadow-sm w-full max-w-lg">
+          <CardHeader className="text-center">
             <CardTitle className="text-xl font-bold">Calendar Overview</CardTitle>
             <CardDescription>Select a date to view scheduled visits.</CardDescription>
           </CardHeader>
@@ -265,105 +260,105 @@ export default function SchedulePage() {
             />
           </CardContent>
         </Card>
+      </div>
 
-        {/* Right: Lists */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Daily Agenda */}
-          <Card className="border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50">
-              <div>
-                <CardTitle className="text-2xl font-black">
-                  {date ? safeFormat(date, 'MMMM do, yyyy') : 'Daily Agenda'}
-                </CardTitle>
-                <CardDescription>
-                  {selectedDateEvents.length} {selectedDateEvents.length === 1 ? 'event' : 'events'} scheduled for this day
-                </CardDescription>
-              </div>
-              {selectedDateEvents.length > 0 && (
-                <Button variant="ghost" size="sm" className="gap-2 font-bold text-slate-600">
-                  <ExternalLink className="h-4 w-4" />
-                  Open in Google
-                </Button>
+      {/* Lists below the calendar */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Daily Agenda */}
+        <Card className="border shadow-sm h-full">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50">
+            <div>
+              <CardTitle className="text-2xl font-black">
+                {date ? safeFormat(date, 'MMMM do, yyyy') : 'Daily Agenda'}
+              </CardTitle>
+              <CardDescription>
+                {selectedDateEvents.length} {selectedDateEvents.length === 1 ? 'event' : 'events'} scheduled for this day
+              </CardDescription>
+            </div>
+            {selectedDateEvents.length > 0 && (
+              <Button variant="ghost" size="sm" className="gap-2 font-bold text-slate-600">
+                <ExternalLink className="h-4 w-4" />
+                Open in Google
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {selectedDateEvents.length > 0 ? (
+                selectedDateEvents.map((event) => (
+                  <div key={event.id} className="flex items-start gap-4 p-5 rounded-2xl border bg-white hover:bg-slate-50 transition-colors group relative">
+                    <div className={`mt-1 h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                      event.type === 'estimate' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
+                    }`}>
+                      {event.type === 'estimate' ? <Search className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
+                    </div>
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-4">
+                        <h4 className="font-bold text-lg text-slate-900 truncate">{event.title}</h4>
+                        <Badge variant="secondary" className="capitalize px-3 py-0.5 font-bold text-[10px] tracking-wider uppercase">
+                          {event.type}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-xs font-medium text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" /> {safeFormat(event.date, 'h:mm a')}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5" /> {event.customerName}
+                        </span>
+                        {event.notes && (
+                          <span className="flex items-center gap-1.5 italic text-slate-400">
+                            {event.notes}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
+                    <CalendarDays className="h-8 w-8 text-slate-200" />
+                  </div>
+                  <p className="text-slate-500 font-medium">Nothing scheduled for this day.</p>
+                  <Button variant="link" onClick={() => setIsAddEventOpen(true)} className="mt-1 font-bold">Schedule something</Button>
+                </div>
               )}
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                {selectedDateEvents.length > 0 ? (
-                  selectedDateEvents.map((event) => (
-                    <div key={event.id} className="flex items-start gap-4 p-5 rounded-2xl border bg-white hover:bg-slate-50 transition-colors group relative">
-                      <div className={`mt-1 h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
-                        event.type === 'estimate' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
-                      }`}>
-                        {event.type === 'estimate' ? <Search className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
-                      </div>
-                      <div className="flex-1 space-y-1.5 min-w-0">
-                        <div className="flex items-center justify-between gap-4">
-                          <h4 className="font-bold text-lg text-slate-900 truncate">{event.title}</h4>
-                          <Badge variant="secondary" className="capitalize px-3 py-0.5 font-bold text-[10px] tracking-wider uppercase">
-                            {event.type}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-wrap gap-4 text-xs font-medium text-muted-foreground">
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5" /> {safeFormat(event.date, 'h:mm a')}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5" /> {event.customerName}
-                          </span>
-                          {event.notes && (
-                            <span className="flex items-center gap-1.5 italic text-slate-400">
-                              {event.notes}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
-                      <CalendarDays className="h-8 w-8 text-slate-200" />
-                    </div>
-                    <p className="text-slate-500 font-medium">Nothing scheduled for this day.</p>
-                    <Button variant="link" onClick={() => setIsAddEventOpen(true)} className="mt-1 font-bold">Schedule something</Button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Upcoming Jobs */}
-          <Card className="border shadow-sm">
-            <CardHeader className="bg-slate-50/50 border-b">
-              <CardTitle className="text-xl font-bold">Upcoming Jobs</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {events.filter(e => {
-                  try {
-                    const ed = new Date(e.date);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    return !isNaN(ed.getTime()) && ed >= today;
-                  } catch {
-                    return false;
-                  }
-                })
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                .slice(0, 5)
-                .map(e => (
-                  <div key={e.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-2.5 w-2.5 rounded-full ${e.type === 'estimate' ? 'bg-blue-500' : 'bg-green-500'}`} />
-                      <span className="font-semibold text-slate-700">{e.title}</span>
-                    </div>
-                    <span className="text-sm font-bold text-slate-400 font-mono">{safeFormat(e.date, 'MMM d')}</span>
+        {/* Upcoming Jobs */}
+        <Card className="border shadow-sm h-full">
+          <CardHeader className="bg-slate-50/50 border-b">
+            <CardTitle className="text-xl font-bold">Upcoming Jobs</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {events.filter(e => {
+                try {
+                  const ed = new Date(e.date);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return !isNaN(ed.getTime()) && ed >= today;
+                } catch {
+                  return false;
+                }
+              })
+              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+              .slice(0, 5)
+              .map(e => (
+                <div key={e.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-2.5 w-2.5 rounded-full ${e.type === 'estimate' ? 'bg-blue-500' : 'bg-green-500'}`} />
+                    <span className="font-semibold text-slate-700">{e.title}</span>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  <span className="text-sm font-bold text-slate-400 font-mono">{safeFormat(e.date, 'MMM d')}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

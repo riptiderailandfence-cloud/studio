@@ -56,6 +56,12 @@ export default function SchedulePage() {
   const { data: profile } = useDoc(profileRef);
   const tenantId = profile?.tenantId;
 
+  const settingsRef = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return doc(firestore, 'tenants', tenantId, 'settings', 'general');
+  }, [firestore, tenantId]);
+  const { data: settings } = useDoc(settingsRef);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -94,9 +100,10 @@ export default function SchedulePage() {
   };
 
   const handleConnectGoogle = () => {
+    const calendarEmail = settings?.email || profile?.email || "account";
     const toastId = toast({
       title: "Connecting to Google...",
-      description: "Redirecting to OAuth portal",
+      description: `Authorizing access for ${calendarEmail}`,
     });
 
     setTimeout(() => {
@@ -104,7 +111,7 @@ export default function SchedulePage() {
       toastId.update({
         id: toastId.id,
         title: "Google Calendar Linked",
-        description: "Your business calendar is now synced.",
+        description: `Synced with ${calendarEmail} successfully.`,
       });
     }, 1500);
   };
@@ -223,12 +230,16 @@ export default function SchedulePage() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-900">Sync with Google Calendar</h3>
-                <p className="text-sm text-muted-foreground">Keep your field schedule in sync across all your devices.</p>
+                <p className="text-sm text-muted-foreground">
+                  {settings?.email 
+                    ? `Link your production schedule directly to ${settings.email}` 
+                    : "Keep your field schedule in sync across all your devices."}
+                </p>
               </div>
             </div>
             <Button onClick={handleConnectGoogle} variant="outline" className="gap-2 bg-white relative z-10 shadow-sm" disabled={!tenantId}>
               <Link2 className="h-4 w-4" />
-              Connect Account
+              Connect {settings?.email ? "Account" : "Calendar"}
             </Button>
           </CardContent>
         </Card>

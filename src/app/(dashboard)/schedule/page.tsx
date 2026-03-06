@@ -39,6 +39,7 @@ import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { doc } from "firebase/firestore";
+import { cn } from "@/lib/utils";
 
 export default function SchedulePage() {
   const { user } = useUser();
@@ -139,15 +140,15 @@ export default function SchedulePage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Schedule</h2>
-          <p className="text-muted-foreground">Manage job-site visits, installs, and crew logistics.</p>
+          <h2 className="text-3xl font-black tracking-tight text-slate-900">Schedule</h2>
+          <p className="text-muted-foreground font-medium">Manage job-site visits, installs, and crew logistics.</p>
         </div>
         <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2" disabled={!tenantId}>
+            <Button className="gap-2 shadow-lg" disabled={!tenantId}>
               <Plus className="h-4 w-4" />
               Add Event
             </Button>
@@ -211,9 +212,12 @@ export default function SchedulePage() {
       </div>
 
       {!isGoogleConnected && (
-        <Card className="border-primary/10 bg-slate-50">
+        <Card className="border-primary/10 bg-slate-50 overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <CalendarDays className="h-24 w-24" />
+          </div>
           <CardContent className="flex items-center justify-between p-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 relative z-10">
               <div className="h-12 w-12 rounded-xl bg-white border shadow-sm flex items-center justify-center text-primary">
                 <CalendarCheck className="h-6 w-6" />
               </div>
@@ -222,7 +226,7 @@ export default function SchedulePage() {
                 <p className="text-sm text-muted-foreground">Keep your field schedule in sync across all your devices.</p>
               </div>
             </div>
-            <Button onClick={handleConnectGoogle} variant="outline" className="gap-2 bg-white" disabled={!tenantId}>
+            <Button onClick={handleConnectGoogle} variant="outline" className="gap-2 bg-white relative z-10 shadow-sm" disabled={!tenantId}>
               <Link2 className="h-4 w-4" />
               Connect Account
             </Button>
@@ -232,30 +236,47 @@ export default function SchedulePage() {
 
       {/* Centered Calendar at the top */}
       <div className="flex justify-center">
-        <Card className="border shadow-sm w-full max-w-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl font-bold">Calendar Overview</CardTitle>
-            <CardDescription>Select a date to view scheduled visits.</CardDescription>
+        <Card className="border shadow-xl w-full max-w-3xl overflow-hidden">
+          <CardHeader className="text-center border-b bg-slate-50/50 pb-6">
+            <CardTitle className="text-xl font-black text-slate-900 uppercase tracking-widest">Field Production Calendar</CardTitle>
+            <CardDescription className="font-medium">Select a date to view scheduled appointments and installations.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col items-center pb-8">
+          <CardContent className="flex justify-center py-10">
             <Calendar
               mode="single"
               selected={date}
               onSelect={setDate}
-              className="rounded-md border-none shadow-none"
+              showOutsideDays={true}
+              className="rounded-2xl border bg-white p-6 shadow-sm"
+              classNames={{
+                month: "space-y-6",
+                caption: "flex justify-center pt-1 relative items-center mb-4",
+                caption_label: "text-lg font-black text-slate-900",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-10 w-10 bg-slate-50 hover:bg-slate-100 rounded-full flex items-center justify-center transition-colors",
+                table: "w-full border-collapse",
+                head_row: "flex mb-2",
+                head_cell: "text-slate-400 rounded-md w-12 font-bold text-[10px] uppercase tracking-widest",
+                row: "flex w-full mt-2",
+                cell: "h-12 w-12 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+                day: "h-12 w-12 p-0 font-bold text-slate-700 aria-selected:opacity-100 hover:bg-slate-50 rounded-xl transition-all",
+                day_selected: "bg-primary text-white hover:bg-primary/90 shadow-md",
+                day_today: "text-primary border-2 border-primary/20",
+                day_outside: "text-slate-300 opacity-50",
+              }}
               modifiers={{
                 hasEvent: (d) => events.some(e => {
                   try {
                     const ed = new Date(e.date);
                     if (isNaN(ed.getTime())) return false;
-                    return ed.getDate() === d.getDate() && ed.getMonth() === d.getMonth();
+                    return ed.getDate() === d.getDate() && ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear();
                   } catch {
                     return false;
                   }
                 })
               }}
               modifiersClassNames={{
-                hasEvent: "font-bold text-primary underline"
+                hasEvent: "after:content-[''] after:absolute after:bottom-2 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-primary after:rounded-full"
               }}
             />
           </CardContent>
@@ -263,22 +284,22 @@ export default function SchedulePage() {
       </div>
 
       {/* Lists below the calendar */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-2">
         {/* Daily Agenda */}
-        <Card className="border shadow-sm h-full">
-          <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50">
+        <Card className="border shadow-lg h-full overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 p-6">
             <div>
-              <CardTitle className="text-2xl font-black">
+              <CardTitle className="text-2xl font-black text-slate-900">
                 {date ? safeFormat(date, 'MMMM do, yyyy') : 'Daily Agenda'}
               </CardTitle>
-              <CardDescription>
-                {selectedDateEvents.length} {selectedDateEvents.length === 1 ? 'event' : 'events'} scheduled for this day
+              <CardDescription className="font-bold text-primary">
+                {selectedDateEvents.length} {selectedDateEvents.length === 1 ? 'Event' : 'Events'} Scheduled
               </CardDescription>
             </div>
             {selectedDateEvents.length > 0 && (
-              <Button variant="ghost" size="sm" className="gap-2 font-bold text-slate-600">
+              <Button variant="ghost" size="sm" className="gap-2 font-black text-[10px] uppercase tracking-widest text-slate-500 hover:text-primary">
                 <ExternalLink className="h-4 w-4" />
-                Open in Google
+                Sync to Mobile
               </Button>
             )}
           </CardHeader>
@@ -286,29 +307,27 @@ export default function SchedulePage() {
             <div className="space-y-4">
               {selectedDateEvents.length > 0 ? (
                 selectedDateEvents.map((event) => (
-                  <div key={event.id} className="flex items-start gap-4 p-5 rounded-2xl border bg-white hover:bg-slate-50 transition-colors group relative">
-                    <div className={`mt-1 h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                  <div key={event.id} className="flex items-start gap-4 p-5 rounded-2xl border-2 bg-white hover:border-primary/20 transition-all group relative cursor-pointer active:scale-[0.98]">
+                    <div className={`mt-1 h-14 w-14 rounded-2xl flex flex-col items-center justify-center shrink-0 shadow-sm ${
                       event.type === 'estimate' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'
                     }`}>
-                      {event.type === 'estimate' ? <Search className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
+                      <span className="text-[10px] font-black uppercase mb-0.5">{event.type === 'estimate' ? 'EST' : 'JOB'}</span>
+                      {event.type === 'estimate' ? <Search className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                     </div>
                     <div className="flex-1 space-y-1.5 min-w-0">
                       <div className="flex items-center justify-between gap-4">
-                        <h4 className="font-bold text-lg text-slate-900 truncate">{event.title}</h4>
-                        <Badge variant="secondary" className="capitalize px-3 py-0.5 font-bold text-[10px] tracking-wider uppercase">
-                          {event.type}
+                        <h4 className="font-black text-lg text-slate-900 truncate tracking-tight">{event.title}</h4>
+                        <Badge variant="outline" className="font-black text-[10px] tracking-tighter uppercase px-2 py-0 border-slate-200">
+                          {safeFormat(event.date, 'h:mm a')}
                         </Badge>
                       </div>
-                      <div className="flex flex-wrap gap-4 text-xs font-medium text-muted-foreground">
+                      <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-500">
                         <span className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5" /> {safeFormat(event.date, 'h:mm a')}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5" /> {event.customerName}
+                          <Users className="h-3.5 w-3.5 text-primary" /> {event.customerName}
                         </span>
                         {event.notes && (
-                          <span className="flex items-center gap-1.5 italic text-slate-400">
-                            {event.notes}
+                          <span className="flex items-center gap-1.5 italic text-slate-400 font-medium">
+                            "{event.notes}"
                           </span>
                         )}
                       </div>
@@ -316,12 +335,13 @@ export default function SchedulePage() {
                   </div>
                 ))
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mb-4">
-                    <CalendarDays className="h-8 w-8 text-slate-200" />
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center mb-6">
+                    <CalendarDays className="h-10 w-10 text-slate-200" />
                   </div>
-                  <p className="text-slate-500 font-medium">Nothing scheduled for this day.</p>
-                  <Button variant="link" onClick={() => setIsAddEventOpen(true)} className="mt-1 font-bold">Schedule something</Button>
+                  <p className="text-slate-900 font-black text-lg">Clear Schedule</p>
+                  <p className="text-slate-500 text-sm max-w-[200px] mt-1">No appointments or installs recorded for this date.</p>
+                  <Button variant="link" onClick={() => setIsAddEventOpen(true)} className="mt-4 font-black uppercase text-xs tracking-widest text-primary">Schedule Event</Button>
                 </div>
               )}
             </div>
@@ -329,12 +349,16 @@ export default function SchedulePage() {
         </Card>
 
         {/* Upcoming Jobs */}
-        <Card className="border shadow-sm h-full">
-          <CardHeader className="bg-slate-50/50 border-b">
-            <CardTitle className="text-xl font-bold">Upcoming Jobs</CardTitle>
+        <Card className="border shadow-lg h-full overflow-hidden">
+          <CardHeader className="bg-slate-900 text-white p-6">
+            <CardTitle className="text-xl font-black uppercase tracking-widest flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              Production Queue
+            </CardTitle>
+            <CardDescription className="text-slate-400 font-medium">Next 5 confirmed installs and visits</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y">
+            <div className="divide-y divide-slate-100">
               {events.filter(e => {
                 try {
                   const ed = new Date(e.date);
@@ -348,12 +372,21 @@ export default function SchedulePage() {
               .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
               .slice(0, 5)
               .map(e => (
-                <div key={e.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-2.5 w-2.5 rounded-full ${e.type === 'estimate' ? 'bg-blue-500' : 'bg-green-500'}`} />
-                    <span className="font-semibold text-slate-700">{e.title}</span>
+                <div key={e.id} className="group flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "h-10 w-1 rounded-full",
+                      e.type === 'estimate' ? 'bg-blue-500' : 'bg-green-500'
+                    )} />
+                    <div className="space-y-0.5">
+                      <span className="block font-black text-slate-900 group-hover:text-primary transition-colors">{e.title}</span>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">{e.customerName}</span>
+                    </div>
                   </div>
-                  <span className="text-sm font-bold text-slate-400 font-mono">{safeFormat(e.date, 'MMM d')}</span>
+                  <div className="text-right">
+                    <span className="block text-sm font-black text-slate-900 font-mono">{safeFormat(e.date, 'MMM d')}</span>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">{safeFormat(e.date, 'h:mm a')}</span>
+                  </div>
                 </div>
               ))}
             </div>

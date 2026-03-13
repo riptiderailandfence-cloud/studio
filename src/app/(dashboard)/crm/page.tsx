@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -121,21 +120,24 @@ export default function CRMPage() {
 
     setIsSaving(true);
     
-    if (editingCustomer.id) {
-      const docRef = doc(firestore, 'tenants', tenantId, 'customers', editingCustomer.id);
-      updateDocumentNonBlocking(docRef, {
-        ...editingCustomer,
-        updatedAt: serverTimestamp()
-      });
+    // Sanitize data
+    const { id, ...saveData } = editingCustomer;
+    const finalData = {
+      ...saveData,
+      name: `${editingCustomer.firstName} ${editingCustomer.lastName}`,
+      tenantId: tenantId,
+      updatedAt: serverTimestamp()
+    };
+
+    if (id) {
+      const docRef = doc(firestore, 'tenants', tenantId, 'customers', id);
+      updateDocumentNonBlocking(docRef, finalData);
       toast({ title: "Customer Updated" });
     } else {
       const colRef = collection(firestore, 'tenants', tenantId, 'customers');
       addDocumentNonBlocking(colRef, {
-        ...editingCustomer,
-        name: `${editingCustomer.firstName} ${editingCustomer.lastName}`,
-        tenantId: tenantId,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        ...finalData,
+        createdAt: serverTimestamp()
       });
       toast({ title: "Customer Added" });
     }
@@ -165,7 +167,6 @@ export default function CRMPage() {
   };
 
   const openChat = (customer: Customer) => {
-    // Redirect to messages with a pre-selected phone or ID logic could go here
     router.push('/messages');
   };
 

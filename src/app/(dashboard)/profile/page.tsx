@@ -21,7 +21,7 @@ import {
   Loader2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useUser, useFirestore, useDoc, updateDocumentNonBlocking, setDocumentNonBlocking, initiateSignOut, useAuth, useMemoFirebase } from "@/firebase";
+import { useUser, useFirestore, useDoc, updateDocumentNonBlocking, initiateSignOut, useAuth, useMemoFirebase } from "@/firebase";
 import { doc, serverTimestamp } from "firebase/firestore";
 
 export default function ProfilePage() {
@@ -60,28 +60,15 @@ export default function ProfilePage() {
   }, [profile, user]);
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || !profileRef) return;
     setLoading(true);
 
     try {
-      const userRef = doc(firestore, 'users', user.uid);
-      const dataToSave = {
+      // We only allow updates here. Initialization is handled by DashboardLayout.
+      updateDocumentNonBlocking(profileRef, {
         ...formData,
         updatedAt: serverTimestamp(),
-      };
-
-      if (profile) {
-        updateDocumentNonBlocking(userRef, dataToSave);
-      } else {
-        // Initial profile creation
-        setDocumentNonBlocking(userRef, {
-          ...dataToSave,
-          uid: user.uid,
-          tenantId: 'tenant_1', // Default tenant for now
-          role: 'Owner',
-          createdAt: serverTimestamp(),
-        }, { merge: true });
-      }
+      });
 
       toast({
         title: "Profile Updated",
@@ -114,14 +101,10 @@ export default function ProfilePage() {
   const displayName = profile?.firstName ? `${profile.firstName} ${profile.lastName}` : (user?.displayName || "User");
   const userInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
 
-  const getJoinedDate = () => {
-    if (!profile?.createdAt) return 'Recently';
+  const safeFormatDate = (dateValue: any) => {
+    if (!dateValue) return 'Recently';
     try {
-      // Handle Firestore Timestamp
-      const d = typeof profile.createdAt.toDate === 'function' 
-        ? profile.createdAt.toDate() 
-        : (profile.createdAt.seconds ? new Date(profile.createdAt.seconds * 1000) : new Date(profile.createdAt));
-      
+      const d = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
       if (isNaN(d.getTime())) return 'Recently';
       return d.toLocaleDateString();
     } catch {
@@ -137,7 +120,6 @@ export default function ProfilePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Left Column: Avatar & Quick Info */}
         <div className="space-y-6">
           <Card>
             <CardContent className="pt-6">
@@ -160,7 +142,7 @@ export default function ProfilePage() {
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
                 <Badge variant="secondary" className="px-4 py-1">
-                  {profile?.role || "Business Owner"}
+                  {profile?.role || "Business Member"}
                 </Badge>
               </div>
               <Separator className="my-6" />
@@ -171,7 +153,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <UserIcon className="h-4 w-4" />
-                  <span>Joined {getJoinedDate()}</span>
+                  <span>Joined {safeFormatDate(profile?.createdAt)}</span>
                 </div>
               </div>
             </CardContent>
@@ -188,7 +170,6 @@ export default function ProfilePage() {
           </Card>
         </div>
 
-        {/* Right Column: Detailed Forms */}
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardHeader>
@@ -263,52 +244,10 @@ export default function ProfilePage() {
                   <Input id="confirmPassword" type="password" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
-                <Key className="h-3 w-3" />
-                <span>Password must be at least 8 characters long and include numbers.</span>
-              </div>
             </CardContent>
             <CardFooter className="border-t bg-secondary/10 px-6 py-4 flex justify-end">
               <Button variant="outline" className="gap-2">Update Password</Button>
             </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>Control which alerts you receive via email.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" /> New Estimate Accepted
-                  </Label>
-                  <p className="text-xs text-muted-foreground">Receive an email when a client signs a quote.</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" /> Deposit Received
-                  </Label>
-                  <p className="text-xs text-muted-foreground">Receive notification when a deposit payment is successful.</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" /> Weekly Performance Summary
-                  </Label>
-                  <p className="text-xs text-muted-foreground">Get a Monday morning report on business KPIs.</p>
-                </div>
-                <Switch />
-              </div>
-            </CardContent>
           </Card>
         </div>
       </div>

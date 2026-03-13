@@ -74,19 +74,23 @@ export default function CrewPage() {
 
     setIsSaving(true);
     
-    if (editingMember.id) {
-      const docRef = doc(firestore, 'tenants', tenantId, 'crewMembers', editingMember.id);
-      updateDocumentNonBlocking(docRef, {
-        ...editingMember,
-        updatedAt: serverTimestamp()
-      });
+    // Sanitize data by extracting only necessary fields
+    const { id, ...saveData } = editingMember;
+    const finalData = {
+      ...saveData,
+      tenantId,
+      updatedAt: serverTimestamp()
+    };
+
+    if (id) {
+      const docRef = doc(firestore, 'tenants', tenantId, 'crewMembers', id);
+      updateDocumentNonBlocking(docRef, finalData);
       toast({ title: "Crew Member Updated" });
     } else {
       const colRef = collection(firestore, 'tenants', tenantId, 'crewMembers');
       addDocumentNonBlocking(colRef, {
-        ...editingMember,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        ...finalData,
+        createdAt: serverTimestamp()
       });
       toast({ title: "Crew Member Added" });
     }

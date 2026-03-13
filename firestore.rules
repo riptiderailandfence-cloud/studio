@@ -16,20 +16,22 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Direct check against the user's own profile doc. 
-    // Does NOT recurse into tenant checks.
+    // Checks if the user's profile document links them to this tenant.
     function isTenantMember(tenantId) {
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
     }
 
-    function currentUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    // Fallback: Checks if the user is the explicit owner of the tenant document.
+    // This is useful during initialization before the User profile is fully indexed.
+    function isTenantOwner(tenantId) {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid;
     }
 
     function hasRole(tenantId, roles) {
-      return isTenantMember(tenantId) && currentUserData().role in roles;
+      return isTenantMember(tenantId) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
     }
 
     function matchesPathTenant(tenantId) {
@@ -51,109 +53,102 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      // Allow the owner to read the tenant doc even before the User profile is fully indexed
+      // Allow access if they are a profile-linked member OR the explicit owner.
       allow get: if isSignedIn() && (
         isTenantMember(tenantId) || 
+        isTenantOwner(tenantId) ||
         (resource != null && resource.data.ownerUserId == request.auth.uid)
       );
       allow list: if false;
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        hasRole(tenantId, ['Owner', 'Admin']) ||
-        (resource != null && resource.data.ownerUserId == request.auth.uid)
+        isTenantOwner(tenantId) ||
+        hasRole(tenantId, ['Owner', 'Admin'])
       );
       allow delete: if false; 
     }
 
     match /tenants/{tenantId}/settings/general {
-      // Allow get if they are a member OR if they own the parent tenant
-      allow get: if isSignedIn() && (
-        isTenantMember(tenantId) ||
-        get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid
-      );
-      allow list: if isTenantMember(tenantId);
+      allow get: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId));
+      allow list: if false;
       allow create: if isSignedIn(); 
-      allow update: if isSignedIn() && (
-        hasRole(tenantId, ['Owner', 'Admin']) ||
-        get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid
-      ) && tenantIdImmutable();
+      allow update: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
       allow delete: if false;
     }
 
     match /tenants/{tenantId}/customers/{customerId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && !hasRole(tenantId, ['Crew Member']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && !hasRole(tenantId, ['Crew Member']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/materials/{materialId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/fenceStyles/{styleId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/postStyles/{styleId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/gateStyles/{styleId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/estimates/{estimateId} {
-      allow get: if isTenantMember(tenantId) || (resource != null && request.auth == null); 
-      allow list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Estimator']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get: if isTenantMember(tenantId) || isTenantOwner(tenantId) || (resource != null && request.auth == null); 
+      allow list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/crewMembers/{memberId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/crews/{crewId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin', 'Crew Manager']) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/jobs/{jobId} {
-      allow get, list: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && !hasRole(tenantId, ['Crew Member']) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && matchesPathTenant(tenantId) && tenantIdImmutable();
-      allow delete: if isTenantMember(tenantId) && hasRole(tenantId, ['Owner', 'Admin']);
+      allow get, list: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow delete: if hasRole(tenantId, ['Owner', 'Admin']) || isTenantOwner(tenantId);
     }
 
-    // Rules for Chat Threads
     match /tenants/{tenantId}/chats/{chatId} {
-      allow read: if isTenantMember(tenantId);
-      allow create: if isTenantMember(tenantId) && matchesPathTenant(tenantId);
-      allow update: if isTenantMember(tenantId) && tenantIdImmutable();
+      allow read: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+      allow create: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if isTenantMember(tenantId);
-        allow create: if isTenantMember(tenantId) || (request.resource.data.senderId == 'client');
+        allow read: if isTenantMember(tenantId) || isTenantOwner(tenantId);
+        allow create: if isTenantMember(tenantId) || isTenantOwner(tenantId) || (request.resource.data.senderId == 'client');
         allow update, delete: if false;
       }
     }

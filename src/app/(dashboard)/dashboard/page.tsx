@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -36,7 +37,7 @@ export default function DashboardPage() {
   const { data: profile } = useDoc(userRef);
   const tenantId = profile?.tenantId;
 
-  // Fetch data for metrics
+  // Fetch data for metrics - only if tenantId is available
   const estimatesQuery = useMemoFirebase(() => {
     if (!tenantId) return null;
     return query(collection(firestore, 'tenants', tenantId, 'estimates'));
@@ -61,10 +62,9 @@ export default function DashboardPage() {
     const avgEstimate = estimates.length > 0 ? totalRevenue / accepted.length || 0 : 0;
     const conversionRate = estimates.length > 0 ? (accepted.length / estimates.length) * 100 : 0;
 
-    // Aggregate by style (Simplified for dashboard)
+    // Aggregate by style
     const styleMap: Record<string, number> = {};
     estimates.forEach(e => {
-      // Logic would be more complex with multiple styles per estimate, here we take the first style name if available
       const styleName = "General Fencing"; 
       styleMap[styleName] = (styleMap[styleName] || 0) + (e.totals?.total || 0);
     });

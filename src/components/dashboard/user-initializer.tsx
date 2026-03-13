@@ -71,10 +71,10 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      // Artificial delay to allow Firestore indexing propagation
+      // Artificial delay to allow Firestore propagation before rendering the dashboard
       setTimeout(() => {
         setIsAuthReady(true);
-      }, 2000);
+      }, 2500);
     } 
     // 3. If profile exists, check if it has a tenantId before signaling ready
     else if (profile?.tenantId) {

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,18 +20,14 @@ import {
   Image as ImageIcon,
   Calculator,
   Percent,
-  Hammer,
-  FlaskConical,
-  Users,
   Timer,
+  Users,
   Zap,
   TrendingUp,
-  Briefcase,
   Loader2
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from "@/firebase";
 import { doc, serverTimestamp } from "firebase/firestore";
@@ -54,25 +51,21 @@ export default function SettingsPage() {
   const { data: settings, isLoading: isSettingsLoading } = useDoc(settingsRef);
 
   const [formData, setFormData] = useState({
-    businessName: "Evergreen Fencing Co.",
-    email: "office@evergreenfencing.com",
-    phone: "(555) 123-4567",
-    website: "https://www.evergreenfencing.com",
-    address: "789 Industrial Way\nSuite 200\nSpringfield, OR 97477",
+    businessName: "",
+    email: "",
+    phone: "",
+    website: "",
+    address: "",
     pricingMethod: "margin",
-    biddingMethod: "footage",
     defaultPercentage: 30,
     salesTaxRate: 8.25,
     profitPct: 30,
     crewSize: 2,
     avgHourlyRate: 35,
     dailyProduction: 100,
-    laborMultiplier: 0.4,
-    minJobFee: 500,
-    enableAIPricing: true,
     requireDeposit: true,
     depositPct: 0.5,
-    contractTemplate: "1. SCOPE OF WORK: Contractor shall furnish all labor and materials to install fencing as specified in the estimate...\n\n2. PAYMENT TERMS: A 50% deposit is required to begin work. Final payment is due upon completion...\n\n3. PERMITS: Client is responsible for obtaining any necessary HOA approvals or municipal permits unless otherwise specified..."
+    contractTemplate: ""
   });
 
   useEffect(() => {
@@ -85,6 +78,8 @@ export default function SettingsPage() {
   const handleSave = () => {
     if (!tenantId || !settingsRef) return;
     setLoading(true);
+    
+    // Ensure tenantId is explicitly part of the saved document for security rules
     setDocumentNonBlocking(settingsRef, {
       ...formData,
       tenantId,
@@ -93,11 +88,19 @@ export default function SettingsPage() {
     
     setTimeout(() => {
       setLoading(false);
-      toast({ title: "Settings Saved" });
-    }, 500);
+      toast({ title: "Settings Saved", description: "Business profile and logic updated." });
+    }, 800);
   };
 
   if (!mounted) return null;
+
+  if (isSettingsLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+      </div>
+    );
+  }
 
   const hourlyCrewCost = (formData.crewSize || 0) * (formData.avgHourlyRate || 0);
   const dailyCrewCost = hourlyCrewCost * 8;
@@ -232,7 +235,7 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label>material tax</Label>
+                    <Label>Material Sales Tax (%)</Label>
                     <Input 
                       type="number" 
                       step="0.01" 
@@ -317,6 +320,7 @@ export default function SettingsPage() {
                 className="min-h-[300px] font-serif"
                 value={formData.contractTemplate}
                 onChange={e => setFormData({...formData, contractTemplate: e.target.value})}
+                placeholder="Paste your standard contract terms here..."
               />
             </CardContent>
           </Card>

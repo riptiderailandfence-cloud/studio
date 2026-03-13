@@ -3,19 +3,18 @@
 
 import { useEffect, useState } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, serverTimestamp, collection, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 /**
- * Ensures a user document exists in Firestore for the authenticated user.
- * This is required by the security rules to permit access to tenant data.
- * This component gates the application until the setup is confirmed.
+ * Ensures a user document and tenant workspace exist in Firestore.
+ * Uses the User's UID as the deterministic Tenant ID for the primary owner
+ * to ensure persistent access across sessions and eliminate ghost tenants.
  */
 export function UserInitializer({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
-  // Memoize the document reference for the user profile
   const userProfileRef = useMemoFirebase(() => {
     return user ? doc(firestore, 'users', user.uid) : null;
   }, [firestore, user]);
@@ -24,21 +23,21 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
   const [setupInProgress, setSetupInProgress] = useState(false);
 
   useEffect(() => {
-    // Only proceed if auth is loaded, user is present, and profile has been checked
-    if (!isUserLoading && user && !isProfileLoading && !profile && !setupInProgress) {
+    // Only proceed if auth is loaded, user is present, and profile check is done
+    if (!isUserLoading && user && !isProfileLoading && (!profile || !profile.tenantId) && !setupInProgress) {
       setSetupInProgress(true);
       
       const userRef = doc(firestore, 'users', user.uid);
-      const newTenantId = doc(collection(firestore, 'tenants')).id; 
-      const tenantRef = doc(firestore, 'tenants', newTenantId);
-      const settingsRef = doc(firestore, 'tenants', newTenantId, 'settings', 'general');
+      // For the primary owner, we use their UID as the initial Tenant ID 
+      // to guarantee deterministic workspace retrieval.
+      const deterministicTenantId = user.uid; 
+      const tenantRef = doc(firestore, 'tenants', deterministicTenantId);
+      const settingsRef = doc(firestore, 'tenants', deterministicTenantId, 'settings', 'general');
 
-      // We use Promise.all to ensure all critical docs are created
-      // before the UI allows the user to proceed.
       Promise.all([
         setDoc(userRef, {
           id: user.uid,
-          tenantId: newTenantId, 
+          tenantId: deterministicTenantId, 
           email: user.email || '',
           name: user.displayName || user.email?.split('@')[0] || 'New User',
           role: 'Owner',
@@ -47,21 +46,21 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
           updatedAt: serverTimestamp(),
         }, { merge: true }),
         setDoc(tenantRef, {
-          id: newTenantId,
+          id: deterministicTenantId,
           name: "My Fencing Business",
           ownerUserId: user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        }),
+        }, { merge: true }),
         setDoc(settingsRef, {
-          tenantId: newTenantId,
+          tenantId: deterministicTenantId,
           businessName: "My Fencing Business",
           email: user.email || '',
           pricingMethod: 'margin',
           profitPct: 30,
           salesTaxRate: 0,
           updatedAt: serverTimestamp()
-        })
+        }, { merge: true })
       ]).then(() => {
         setSetupInProgress(false);
       }).catch((error) => {
@@ -71,7 +70,6 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
     }
   }, [user, isUserLoading, profile, isProfileLoading, firestore, setupInProgress]);
 
-  // Gate the application until the profile is confirmed or setup is done
   if (isUserLoading || isProfileLoading || setupInProgress || (user && !profile)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -79,7 +77,7 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <div className="text-center">
             <p className="text-sm font-bold text-slate-900">Configuring Workspace</p>
-            <p className="text-xs text-muted-foreground">Preparing your business profile and security...</p>
+            <p className="text-xs text-muted-foreground">Synchronizing your business profile and security...</p>
           </div>
         </div>
       </div>

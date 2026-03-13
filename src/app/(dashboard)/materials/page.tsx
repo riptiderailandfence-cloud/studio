@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
@@ -108,19 +109,23 @@ export default function MaterialsPage() {
 
     setIsSaving(true);
     
+    // Explicitly add tenantId to ensure security rules are satisfied
+    const payload = {
+      ...editingMaterial,
+      tenantId,
+      updatedAt: serverTimestamp()
+    };
+
     if (editingMaterial.id) {
-      const docRef = doc(firestore, 'tenants', tenantId, 'materials', editingMaterial.id);
-      updateDocumentNonBlocking(docRef, {
-        ...editingMaterial,
-        updatedAt: serverTimestamp()
-      });
+      const { id, ...dataToUpdate } = payload;
+      const docRef = doc(firestore, 'tenants', tenantId, 'materials', id!);
+      updateDocumentNonBlocking(docRef, dataToUpdate);
       toast({ title: "Material Updated" });
     } else {
       const colRef = collection(firestore, 'tenants', tenantId, 'materials');
       addDocumentNonBlocking(colRef, {
-        ...editingMaterial,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        ...payload,
+        createdAt: serverTimestamp()
       });
       toast({ title: "Material Added" });
     }
@@ -182,7 +187,7 @@ export default function MaterialsPage() {
 
       setIsUploading(false);
       setIsBulkUploadOpen(false);
-      toast({ title: "Bulk Upload Complete" });
+      toast({ title: "Bulk Upload Complete", description: "All materials added to your workspace." });
     };
     reader.readAsText(file);
   };

@@ -18,20 +18,24 @@ service cloud.firestore {
 
     // Checks if the user's profile document links them to this tenant.
     function isTenantMember(tenantId) {
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       return isSignedIn() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
+             exists(userPath) &&
+             get(userPath).data.tenantId == tenantId;
     }
 
     // Fallback: Checks if the user is the explicit owner of the tenant document.
-    // This is useful during initialization before the User profile is fully indexed.
     function isTenantOwner(tenantId) {
+      let tenantPath = /databases/$(database)/documents/tenants/$(tenantId);
       return isSignedIn() && 
-             get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid;
+             exists(tenantPath) &&
+             get(tenantPath).data.ownerUserId == request.auth.uid;
     }
 
     function hasRole(tenantId, roles) {
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       return isTenantMember(tenantId) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
+             get(userPath).data.role in roles;
     }
 
     function matchesPathTenant(tenantId) {
@@ -54,6 +58,7 @@ service cloud.firestore {
 
     match /tenants/{tenantId} {
       // Allow access if they are a profile-linked member OR the explicit owner.
+      // We check resource.data directly for 'get' to avoid recursion where possible.
       allow get: if isSignedIn() && (
         isTenantMember(tenantId) || 
         isTenantOwner(tenantId) ||

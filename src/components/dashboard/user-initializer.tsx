@@ -2,13 +2,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useUser, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { doc, serverTimestamp, collection } from 'firebase/firestore';
-import { Loader2 } from "lucide-react";
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, serverTimestamp, collection, setDoc } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
 
 /**
- * Ensures a user document and their initial tenant workspace exist in Firestore.
+ * Ensures a user document exists in Firestore for the authenticated user.
  * This is required by the security rules to permit access to tenant data.
+ * This component gates the application until the setup is confirmed.
  */
 export function UserInitializer({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -20,77 +21,66 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
   }, [firestore, user]);
 
   const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
-  const [hasAttemptedInit, setHasAttemptedInit] = useState(false);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [setupInProgress, setSetupInProgress] = useState(false);
 
   useEffect(() => {
-    // 1. If we are still loading Auth or Profile, we aren't ready
-    if (isUserLoading || isProfileLoading) {
-      return;
-    }
-
-    // 2. If user is logged in but no profile exists, initialize them
-    if (user && !profile && !hasAttemptedInit) {
-      setHasAttemptedInit(true);
+    // Only proceed if auth is loaded, user is present, and profile has been checked
+    if (!isUserLoading && user && !isProfileLoading && !profile && !setupInProgress) {
+      setSetupInProgress(true);
       
       const userRef = doc(firestore, 'users', user.uid);
       const newTenantId = doc(collection(firestore, 'tenants')).id; 
-      const tenantName = user.displayName ? `${user.displayName}'s Fencing Co.` : 'My Fencing Business';
-
-      // Initialize User Profile with tenant membership
-      setDocumentNonBlocking(userRef, {
-        id: user.uid,
-        tenantId: newTenantId,
-        email: user.email || '',
-        name: user.displayName || user.email?.split('@')[0] || 'New User',
-        role: 'Owner',
-        active: true,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-
-      // Initialize Tenant Record
       const tenantRef = doc(firestore, 'tenants', newTenantId);
-      setDocumentNonBlocking(tenantRef, {
-        id: newTenantId,
-        name: tenantName,
-        ownerUserId: user.uid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-
-      // Initialize Default Settings
       const settingsRef = doc(firestore, 'tenants', newTenantId, 'settings', 'general');
-      setDocumentNonBlocking(settingsRef, {
-        tenantId: newTenantId,
-        businessName: tenantName,
-        email: user.email || '',
-        pricingMethod: 'margin',
-        profitPct: 30,
-        salesTaxRate: 8.25,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
 
-      // Artificial delay to allow Firestore propagation before rendering the dashboard
-      setTimeout(() => {
-        setIsAuthReady(true);
-      }, 2500);
-    } 
-    // 3. If profile exists, check if it has a tenantId before signaling ready
-    else if (profile?.tenantId) {
-      setIsAuthReady(true);
+      // We use Promise.all to ensure all critical docs are created
+      // before the UI allows the user to proceed.
+      Promise.all([
+        setDoc(userRef, {
+          id: user.uid,
+          tenantId: newTenantId, 
+          email: user.email || '',
+          name: user.displayName || user.email?.split('@')[0] || 'New User',
+          role: 'Owner',
+          active: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true }),
+        setDoc(tenantRef, {
+          id: newTenantId,
+          name: "My Fencing Business",
+          ownerUserId: user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }),
+        setDoc(settingsRef, {
+          tenantId: newTenantId,
+          businessName: "My Fencing Business",
+          email: user.email || '',
+          pricingMethod: 'margin',
+          profitPct: 30,
+          salesTaxRate: 0,
+          updatedAt: serverTimestamp()
+        })
+      ]).then(() => {
+        setSetupInProgress(false);
+      }).catch((error) => {
+        console.error("Critical: Workspace setup failed:", error);
+        setSetupInProgress(false);
+      });
     }
-  }, [user, isUserLoading, profile, isProfileLoading, firestore, hasAttemptedInit]);
+  }, [user, isUserLoading, profile, isProfileLoading, firestore, setupInProgress]);
 
-  // Block rendering until the profile is confirmed or initialization has stabilized
-  if (isUserLoading || isProfileLoading || (user && !isAuthReady)) {
+  // Gate the application until the profile is confirmed or setup is done
+  if (isUserLoading || isProfileLoading || setupInProgress || (user && !profile)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
-            {profile ? "Entering workspace..." : "Configuring your business..."}
-          </p>
+          <div className="text-center">
+            <p className="text-sm font-bold text-slate-900">Configuring Workspace</p>
+            <p className="text-xs text-muted-foreground">Preparing your business profile and security...</p>
+          </div>
         </div>
       </div>
     );

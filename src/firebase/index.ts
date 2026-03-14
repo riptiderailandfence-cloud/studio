@@ -9,7 +9,6 @@ import { getStorage } from 'firebase/storage';
 
 /**
  * Initializes Firebase App and returns initialized SDK instances.
- * Handles both production (App Hosting) and development (Config Object) environments.
  */
 export function initializeFirebase() {
   let firebaseApp: FirebaseApp;
@@ -19,8 +18,6 @@ export function initializeFirebase() {
     firebaseApp = apps[0];
   } else {
     try {
-      // In App Hosting, initializeApp() without args picks up env vars automatically.
-      // We explicitly pass the config to ensure storageBucket and other metadata are correctly set.
       firebaseApp = initializeApp(firebaseConfig);
     } catch (e) {
       console.warn('Firebase initialization warning:', e);
@@ -32,8 +29,8 @@ export function initializeFirebase() {
 }
 
 /**
- * Returns initialized Firebase SDKs for a given FirebaseApp instance.
- * Explicitly forces the storage bucket domain to prevent 404s in managed environments.
+ * Returns initialized Firebase SDKs.
+ * Explicitly provides the storage bucket from config to prevent domain mismatches.
  */
 export function getSdks(firebaseApp: FirebaseApp) {
   return {

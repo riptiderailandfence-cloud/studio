@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -118,7 +119,6 @@ export default function EstimatesPage() {
     setIsSendingEmail(true);
     
     try {
-      // 1. Dispatch actual email flow
       const result = await sendEstimateEmail({
         to: activeEstimate.customerSnapshot?.email || "",
         subject: emailDraft.subject,
@@ -126,7 +126,6 @@ export default function EstimatesPage() {
       });
 
       if (result.success) {
-        // 2. Update status in Firestore
         const docRef = doc(firestore, 'tenants', tenantId, 'estimates', activeEstimate.id);
         updateDocumentNonBlocking(docRef, {
           status: 'sent',
@@ -140,13 +139,13 @@ export default function EstimatesPage() {
         });
         setIsEmailDialogOpen(false);
       } else {
-        throw new Error("Delivery failed");
+        throw new Error(result.error || "Delivery failed");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Email send error:", error);
       toast({ 
         title: "Send Error", 
-        description: "Failed to deliver email. Please check the recipient address.", 
+        description: error.message || "Failed to deliver email. Ensure you are sending to an authorized test email address if your domain is not verified.", 
         variant: "destructive" 
       });
     } finally {
@@ -317,7 +316,7 @@ export default function EstimatesPage() {
               <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex gap-3">
                 <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0" />
                 <p className="text-[10px] text-amber-800 leading-tight">
-                  <strong>ACTIVATED:</strong> Confirming "Send" will dispatch the email and update the estimate status. Final delivery is managed by your server-side flow.
+                  <strong>PRODUCTION MODE:</strong> Using Resend for delivery. If your domain is not verified, emails can only be sent to the address associated with your Resend account.
                 </p>
               </div>
             </div>

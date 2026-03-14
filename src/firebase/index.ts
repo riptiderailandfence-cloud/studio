@@ -35,7 +35,12 @@ export function initializeFirebase() {
 
 export function getSdks(firebaseApp: FirebaseApp) {
   // We explicitly provide the storage bucket to ensure reliability in all environments
-  const storageBucket = firebaseApp.options.storageBucket || firebaseConfig.storageBucket;
+  let storageBucket = firebaseApp.options.storageBucket || firebaseConfig.storageBucket;
+  
+  // Ensure the bucket has the gs:// prefix if it's provided as a string
+  if (storageBucket && !storageBucket.startsWith('gs://')) {
+    storageBucket = `gs://${storageBucket}`;
+  }
   
   return {
     firebaseApp,

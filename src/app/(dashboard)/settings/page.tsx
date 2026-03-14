@@ -103,34 +103,39 @@ export default function SettingsPage() {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !tenantId || !storage) return;
+    if (!file || !tenantId || !storage) {
+      console.warn("Upload aborted: Missing file, tenantId, or storage instance.");
+      return;
+    }
 
     setIsUploadingLogo(true);
     try {
-      // Create a unique path for the business logo
-      const fileExt = file.name.split('.').pop();
-      const fileName = `business_logo_${Date.now()}.${fileExt}`;
+      const fileExt = file.name.split('.').pop() || 'png';
+      const fileName = `logo.${fileExt}`;
       const filePath = `tenants/${tenantId}/branding/${fileName}`;
       
       const storageRef = ref(storage, filePath);
+      
+      // Upload the file
       const snapshot = await uploadBytes(storageRef, file);
+      
+      // Get the persistent download URL
       const url = await getDownloadURL(snapshot.ref);
       
       setFormData(prev => ({ ...prev, logoUrl: url }));
       toast({ 
         title: "Logo Uploaded", 
-        description: "Your business logo has been uploaded. Don't forget to click Save Changes to persist this update." 
+        description: "Your business logo has been uploaded. Click 'Save Changes' to persist this update." 
       });
     } catch (error: any) {
       console.error("Logo upload error:", error);
       toast({ 
         title: "Upload Failed", 
-        description: error.message || "Could not upload image. Please try again.",
+        description: error.message || "The file could not be uploaded. Check your connection or storage permissions.",
         variant: "destructive" 
       });
     } finally {
       setIsUploadingLogo(false);
-      // Clear input so same file can be re-selected if needed
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };

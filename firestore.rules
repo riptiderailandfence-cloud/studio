@@ -12,16 +12,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Direct check if user is a member of the tenant via their profile
-    function isTenantMember(tenantId) {
-      // Safely fetch the user's profile which contains their tenantId.
-      // This is not recursive because the 'users' collection rules are independent.
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return isSignedIn() && userDoc != null && userDoc.tenantId == tenantId;
-    }
-
-    // Secondary check for workspace owners. 
-    // We use a deterministic check first (UID == tenantId) to avoid expensive lookups.
+    // Direct check for business ownership using deterministic IDs
     function isTenantOwner(tenantId) {
       return isSignedIn() && (
         request.auth.uid == tenantId || 
@@ -29,13 +20,20 @@ service cloud.firestore {
       );
     }
 
+    // Check if user is a member of the tenant via their profile
+    function isTenantMember(tenantId) {
+      // We use a safe get() here. The 'users' collection rules must not call this function.
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isSignedIn() && userDoc != null && userDoc.tenantId == tenantId;
+    }
+
     function matchesPathTenant(tenantId) {
       return request.resource.data.tenantId == tenantId;
     }
 
     function tenantIdImmutable() {
-      // request.resource.data represents the document as it would exist after the update
-      return request.resource.data.tenantId == resource.data.tenantId;
+      // Allows field creation if it doesn't exist, otherwise forces equality
+      return !("tenantId" in resource.data) || request.resource.data.tenantId == resource.data.tenantId;
     }
 
     // --- COLLECTION RULES ---
@@ -47,8 +45,7 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      // We use 'resource.data' instead of isTenantOwner() to avoid recursion 
-      // when accessing the tenant document itself.
+      // Use resource.data for self-access to avoid recursive get()
       allow get: if isSignedIn() && (
         request.auth.uid == tenantId || 
         resource.data.ownerUserId == request.auth.uid || 

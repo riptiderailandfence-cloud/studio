@@ -83,14 +83,13 @@ export default function SettingsPage() {
     
     setLoading(true);
     
-    // We explicitly include the tenantId in the payload to satisfy security rules
+    // Explicitly include tenantId to ensure security rules are satisfied
     setDocumentNonBlocking(settingsRef, {
       ...formData,
       tenantId,
       updatedAt: serverTimestamp()
     }, { merge: true });
     
-    // Non-blocking write means we update local UI state immediately
     setTimeout(() => {
       setLoading(false);
       toast({ title: "Settings Saved", description: "Business profile and pricing logic updated successfully." });

@@ -53,16 +53,16 @@ export default function ProfilePage() {
   }, [profile, user]);
 
   const handleSave = () => {
-    if (!user || !profileRef) return;
+    if (!user || !profileRef || !profile?.tenantId) return;
     setLoading(true);
 
-    // We use non-blocking updates per performance guidelines
+    // Explicitly include tenantId to ensure persistence context remains valid
     updateDocumentNonBlocking(profileRef, {
       ...formData,
+      tenantId: profile.tenantId,
       updatedAt: serverTimestamp(),
     });
 
-    // Local state updates immediately for responsive feel
     setTimeout(() => {
       setLoading(false);
       toast({

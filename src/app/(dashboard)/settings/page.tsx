@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -33,6 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useStorage } from "@/firebase";
 import { doc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -103,20 +103,35 @@ export default function SettingsPage() {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !tenantId) return;
+    if (!file || !tenantId || !storage) return;
 
     setIsUploadingLogo(true);
     try {
-      const storageRef = ref(storage, `tenants/${tenantId}/logos/${Date.now()}_${file.name}`);
+      // Create a unique path for the business logo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `business_logo_${Date.now()}.${fileExt}`;
+      const filePath = `tenants/${tenantId}/branding/${fileName}`;
+      
+      const storageRef = ref(storage, filePath);
       const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
+      
       setFormData(prev => ({ ...prev, logoUrl: url }));
-      toast({ title: "Logo Uploaded", description: "Remember to save your changes." });
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Upload Failed", variant: "destructive" });
+      toast({ 
+        title: "Logo Uploaded", 
+        description: "Your business logo has been uploaded. Don't forget to click Save Changes to persist this update." 
+      });
+    } catch (error: any) {
+      console.error("Logo upload error:", error);
+      toast({ 
+        title: "Upload Failed", 
+        description: error.message || "Could not upload image. Please try again.",
+        variant: "destructive" 
+      });
     } finally {
       setIsUploadingLogo(false);
+      // Clear input so same file can be re-selected if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -130,7 +145,10 @@ export default function SettingsPage() {
   if (isSettingsLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground animate-pulse">Loading settings...</p>
+        </div>
       </div>
     );
   }
@@ -146,7 +164,7 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h2>
           <p className="text-muted-foreground">Manage your business profile, templates, and pricing logic.</p>
         </div>
-        <Button onClick={handleSave} disabled={loading || !tenantId} className="gap-2 min-w-[140px]">
+        <Button onClick={handleSave} disabled={loading || isUploadingLogo || !tenantId} className="gap-2 min-w-[140px]">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {loading ? "Saving..." : "Save Changes"}
         </Button>
@@ -179,11 +197,17 @@ export default function SettingsPage() {
                 <div className="flex flex-col items-center gap-2">
                   <Label>Business Logo</Label>
                   <div 
-                    className="h-32 w-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center bg-secondary/20 text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer group relative overflow-hidden"
-                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "h-32 w-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center bg-secondary/20 text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer group relative overflow-hidden",
+                      isUploadingLogo && "cursor-wait opacity-50"
+                    )}
+                    onClick={() => !isUploadingLogo && fileInputRef.current?.click()}
                   >
                     {isUploadingLogo ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <span className="text-[10px] font-bold uppercase animate-pulse">Uploading...</span>
+                      </div>
                     ) : formData.logoUrl ? (
                       <>
                         <img src={formData.logoUrl} alt="Business Logo" className="w-full h-full object-contain p-2" />

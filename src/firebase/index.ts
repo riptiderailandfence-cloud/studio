@@ -34,11 +34,14 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  // We explicitly provide the storage bucket to ensure reliability in all environments
+  const storageBucket = firebaseApp.options.storageBucket || firebaseConfig.storageBucket;
+  
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
     firestore: getFirestore(firebaseApp),
-    storage: getStorage(firebaseApp)
+    storage: getStorage(firebaseApp, storageBucket)
   };
 }
 

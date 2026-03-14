@@ -1,3 +1,4 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -19,7 +20,7 @@ export function initializeFirebase() {
   } else {
     try {
       // In App Hosting, initializeApp() without args picks up env vars automatically.
-      // We merge with firebaseConfig to ensure local fallbacks work and storageBucket is present.
+      // We explicitly pass the config to ensure storageBucket and other metadata are correctly set.
       firebaseApp = initializeApp(firebaseConfig);
     } catch (e) {
       console.warn('Firebase initialization warning:', e);
@@ -32,15 +33,14 @@ export function initializeFirebase() {
 
 /**
  * Returns initialized Firebase SDKs for a given FirebaseApp instance.
+ * Explicitly forces the storage bucket domain to prevent 404s in managed environments.
  */
 export function getSdks(firebaseApp: FirebaseApp) {
-  // We rely on the bucket defined in the app options (from initializeApp).
-  // Passing it explicitly can sometimes cause URI formatting issues in certain environments.
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
     firestore: getFirestore(firebaseApp),
-    storage: getStorage(firebaseApp)
+    storage: getStorage(firebaseApp, firebaseConfig.storageBucket)
   };
 }
 

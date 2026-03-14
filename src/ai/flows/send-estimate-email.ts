@@ -1,14 +1,14 @@
+
 'use server';
 /**
- * @fileOverview This file implements a Genkit flow for the actual delivery of estimate emails.
+ * @fileOverview This file implements a Genkit flow for production email delivery via Resend.
  *
- * - sendEstimateEmail - A function that handles the dispatch process to a mail provider.
- * - SendEmailInput - The input type for the sendEstimateEmail function.
- * - SendEmailOutput - The return type for the sendEstimateEmail function.
+ * - sendEstimateEmail - A function that dispatches estimates to clients using an external mail provider.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { Resend } from 'resend';
 
 const SendEmailInputSchema = z.object({
   to: z.string().email().describe('The recipient email address.'),
@@ -24,6 +24,10 @@ const SendEmailOutputSchema = z.object({
 });
 export type SendEmailOutput = z.infer<typeof SendEmailOutputSchema>;
 
+// Initialize Resend with the provided environment variable
+// If no key is present, it will fallback to mock mode for stability
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
 export async function sendEstimateEmail(input: SendEmailInput): Promise<SendEmailOutput> {
   return sendEstimateEmailFlow(input);
 }
@@ -35,16 +39,39 @@ const sendEstimateEmailFlow = ai.defineFlow(
     outputSchema: SendEmailOutputSchema,
   },
   async (input) => {
-    // This is the active implementation of the email service.
-    // In a production environment, you would integrate a provider like Resend or SendGrid here.
-    
-    // Simulate real-world delivery latency
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    if (!resend) {
+      console.warn('RESEND_API_KEY not found. Simulating email delivery for preview.');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return {
+        success: true,
+        messageId: `mock_${Math.random().toString(36).substring(7)}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
 
-    return {
-      success: true,
-      messageId: `sent_${Math.random().toString(36).substring(7)}`,
-      timestamp: new Date().toISOString(),
-    };
+    try {
+      const { data, error } = await resend.emails.send({
+        from: 'Estimates <estimates@pillarpath.app>',
+        to: [input.to],
+        subject: input.subject,
+        text: input.body,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return {
+        success: true,
+        messageId: data?.id,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err: any) {
+      console.error('Email dispatch failure:', err);
+      return {
+        success: false,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 );

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -32,7 +33,6 @@ import { Separator } from "@/components/ui/separator";
 import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useStorage } from "@/firebase";
 import { doc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -103,7 +103,7 @@ export default function SettingsPage() {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !tenantId) return;
+    if (!file || !tenantId || !storage) return;
 
     setIsUploadingLogo(true);
     try {
@@ -118,15 +118,16 @@ export default function SettingsPage() {
         title: "Logo Uploaded", 
         description: "Click 'Save Changes' to apply your new branding." 
       });
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Storage upload failure:", error);
       toast({ 
         title: "Upload Failed", 
-        description: "Could not upload image. Ensure it is a valid JPG/PNG.", 
+        description: error.message || "Could not upload image. Ensure it is a valid JPG/PNG.", 
         variant: "destructive" 
       });
     } finally {
       setIsUploadingLogo(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 

@@ -39,33 +39,59 @@ import {
 } from "@/components/ui/collapsible";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const navigationItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "CRM (Customers)", url: "/crm", icon: Users },
-  { title: "Messages", url: "/messages", icon: MessageSquare, badge: "2" },
-  { title: "Schedule", url: "/schedule", icon: CalendarDays },
-  { title: "Jobs (Job Packs)", url: "/jobs", icon: Briefcase },
-  { title: "Job Costing", url: "/job-costing", icon: TrendingUp },
-  { title: "Materials", url: "/materials", icon: Package },
-  { 
-    title: "Styles & Types", 
-    url: "/styles/fences", 
-    icon: Paintbrush,
-    isActive: true,
-    items: [
-      { title: "Fence Styles", url: "/styles/fences" },
-      { title: "Post Types", url: "/styles/posts" },
-      { title: "Gate Styles", url: "/styles/gates" },
-    ]
-  },
-  { title: "Estimates", url: "/estimates", icon: FileText },
-  { title: "Crew Management", url: "/crew", icon: HardHat },
-];
+import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
+import { collection, query, doc } from "firebase/firestore";
+import { ChatThread } from "@/lib/types";
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [mounted, setMounted] = React.useState(false);
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const userRef = useMemoFirebase(() => user ? doc(firestore, 'users', user.uid) : null, [firestore, user]);
+  const { data: profile } = useDoc(userRef);
+  const tenantId = profile?.tenantId;
+
+  const chatsQuery = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return query(collection(firestore, 'tenants', tenantId, 'chats'));
+  }, [firestore, tenantId]);
+
+  const { data: chats } = useCollection<ChatThread>(chatsQuery);
+
+  const totalUnread = React.useMemo(() => {
+    if (!chats) return 0;
+    return chats.reduce((acc, chat) => acc + (chat.unreadCount || 0), 0);
+  }, [chats]);
+
+  const navigationItems = React.useMemo(() => [
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+    { title: "CRM (Customers)", url: "/crm", icon: Users },
+    { 
+      title: "Messages", 
+      url: "/messages", 
+      icon: MessageSquare, 
+      badge: totalUnread > 0 ? totalUnread.toString() : undefined 
+    },
+    { title: "Schedule", url: "/schedule", icon: CalendarDays },
+    { title: "Jobs (Job Packs)", url: "/jobs", icon: Briefcase },
+    { title: "Job Costing", url: "/job-costing", icon: TrendingUp },
+    { title: "Materials", url: "/materials", icon: Package },
+    { 
+      title: "Styles & Types", 
+      url: "/styles/fences", 
+      icon: Paintbrush,
+      isActive: true,
+      items: [
+        { title: "Fence Styles", url: "/styles/fences" },
+        { title: "Post Types", url: "/styles/posts" },
+        { title: "Gate Styles", url: "/styles/gates" },
+      ]
+    },
+    { title: "Estimates", url: "/estimates", icon: FileText },
+    { title: "Crew Management", url: "/crew", icon: HardHat },
+  ], [totalUnread]);
 
   React.useEffect(() => {
     setMounted(true);

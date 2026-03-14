@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,14 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { 
   User as UserIcon, 
   Mail, 
   Shield, 
-  Key, 
   LogOut, 
-  Bell, 
   Save,
   Camera,
   Loader2
@@ -51,39 +49,27 @@ export default function ProfilePage() {
         email: profile.email || user?.email || "",
         phone: profile.phone || "",
       });
-    } else if (user) {
-      setFormData(prev => ({
-        ...prev,
-        email: user.email || "",
-      }));
     }
   }, [profile, user]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!user || !profileRef) return;
     setLoading(true);
 
-    try {
-      // We only allow updates here. Initialization is handled by DashboardLayout.
-      updateDocumentNonBlocking(profileRef, {
-        ...formData,
-        updatedAt: serverTimestamp(),
-      });
+    // We use non-blocking updates per performance guidelines
+    updateDocumentNonBlocking(profileRef, {
+      ...formData,
+      updatedAt: serverTimestamp(),
+    });
 
+    // Local state updates immediately for responsive feel
+    setTimeout(() => {
+      setLoading(false);
       toast({
         title: "Profile Updated",
-        description: "Your personal information has been saved successfully.",
+        description: "Your changes have been saved to your workspace.",
       });
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save profile changes.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    }, 500);
   };
 
   const handleSignOut = () => {
@@ -141,15 +127,15 @@ export default function ProfilePage() {
                   <h3 className="text-xl font-bold">{displayName}</h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
-                <Badge variant="secondary" className="px-4 py-1">
-                  {profile?.role || "Business Member"}
+                <Badge variant="secondary" className="px-4 py-1 uppercase font-bold tracking-wider">
+                  {profile?.role || "Member"}
                 </Badge>
               </div>
               <Separator className="my-6" />
               <div className="space-y-4">
                 <div className="flex items-center gap-3 text-sm">
                   <Shield className="h-4 w-4 text-primary" />
-                  <span>{profile?.role === 'Owner' ? 'Full Access Permissions' : 'Limited Access'}</span>
+                  <span className="font-medium">{profile?.role === 'Owner' ? 'Full Access' : 'Standard Access'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <UserIcon className="h-4 w-4" />
@@ -221,32 +207,6 @@ export default function ProfilePage() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {loading ? "Saving..." : "Save Changes"}
               </Button>
-            </CardFooter>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Security</CardTitle>
-              <CardDescription>Manage your password and account security.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <Input id="newPassword" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <Input id="confirmPassword" type="password" />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t bg-secondary/10 px-6 py-4 flex justify-end">
-              <Button variant="outline" className="gap-2">Update Password</Button>
             </CardFooter>
           </Card>
         </div>

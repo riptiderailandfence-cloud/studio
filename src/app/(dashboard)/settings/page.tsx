@@ -76,20 +76,25 @@ export default function SettingsPage() {
   }, [settings]);
 
   const handleSave = () => {
-    if (!tenantId || !settingsRef) return;
+    if (!tenantId || !settingsRef) {
+      toast({ title: "Error", description: "Workspace not ready. Please refresh.", variant: "destructive" });
+      return;
+    }
+    
     setLoading(true);
     
-    // Ensure tenantId is explicitly part of the saved document for security rules
+    // We explicitly include the tenantId in the payload to satisfy security rules
     setDocumentNonBlocking(settingsRef, {
       ...formData,
       tenantId,
       updatedAt: serverTimestamp()
     }, { merge: true });
     
+    // Non-blocking write means we update local UI state immediately
     setTimeout(() => {
       setLoading(false);
-      toast({ title: "Settings Saved", description: "Business profile and logic updated." });
-    }, 800);
+      toast({ title: "Settings Saved", description: "Business profile and pricing logic updated successfully." });
+    }, 600);
   };
 
   if (!mounted) return null;
@@ -113,9 +118,9 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h2>
           <p className="text-muted-foreground">Manage your business profile, templates, and pricing logic.</p>
         </div>
-        <Button onClick={handleSave} disabled={loading || !tenantId} className="gap-2">
+        <Button onClick={handleSave} disabled={loading || !tenantId} className="gap-2 min-w-[140px]">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save Changes
+          {loading ? "Saving..." : "Save Changes"}
         </Button>
       </div>
 
@@ -136,7 +141,7 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
-          <Card>
+          <Card className="border-2">
             <CardHeader>
               <CardTitle>Business Profile</CardTitle>
               <CardDescription>Update your public business information used on estimates and invoices.</CardDescription>
@@ -147,7 +152,7 @@ export default function SettingsPage() {
                   <Label>Business Logo</Label>
                   <div className="h-32 w-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center bg-secondary/20 text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer group">
                     <ImageIcon className="h-8 w-8 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] uppercase font-bold">Upload Logo</span>
+                    <span className="text-[10px] uppercase font-bold text-center px-2">Upload Logo</span>
                   </div>
                 </div>
                 <div className="flex-1 grid gap-4">
@@ -204,7 +209,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="estimates" className="space-y-4">
-          <Card>
+          <Card className="border-2">
             <CardHeader>
               <CardTitle>Estimate Configuration</CardTitle>
               <CardDescription>Define the core math and logic used to build customer quotes.</CardDescription>
@@ -310,7 +315,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-4">
-          <Card>
+          <Card className="border-2">
             <CardHeader>
               <CardTitle>Contract Template</CardTitle>
               <CardDescription>Custom legal text for your quotes.</CardDescription>
@@ -327,7 +332,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="payments" className="space-y-4">
-          <Card>
+          <Card className="border-2">
             <CardHeader>
               <CardTitle>Deposit Configuration</CardTitle>
             </CardHeader>

@@ -14,14 +14,19 @@ service cloud.firestore {
 
     // Direct check if user is a member of the tenant via their profile
     function isTenantMember(tenantId) {
+      // Safely fetch the user's profile which contains their tenantId.
+      // This is not recursive because the 'users' collection rules are independent.
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return isSignedIn() && userDoc.tenantId == tenantId;
+      return isSignedIn() && userDoc != null && userDoc.tenantId == tenantId;
     }
 
-    // Secondary check for workspace owners (using the deterministic ID or owner field)
+    // Secondary check for workspace owners. 
+    // We use a deterministic check first (UID == tenantId) to avoid expensive lookups.
     function isTenantOwner(tenantId) {
-      return isSignedIn() && (request.auth.uid == tenantId || 
-        get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid);
+      return isSignedIn() && (
+        request.auth.uid == tenantId || 
+        get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid
+      );
     }
 
     function matchesPathTenant(tenantId) {
@@ -29,6 +34,7 @@ service cloud.firestore {
     }
 
     function tenantIdImmutable() {
+      // request.resource.data represents the document as it would exist after the update
       return request.resource.data.tenantId == resource.data.tenantId;
     }
 
@@ -41,33 +47,39 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow get: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId));
+      // We use 'resource.data' instead of isTenantOwner() to avoid recursion 
+      // when accessing the tenant document itself.
+      allow get: if isSignedIn() && (
+        request.auth.uid == tenantId || 
+        resource.data.ownerUserId == request.auth.uid || 
+        isTenantMember(tenantId)
+      );
       allow create: if isSignedIn();
-      allow update: if isTenantOwner(tenantId);
+      allow update: if isSignedIn() && (request.auth.uid == tenantId || resource.data.ownerUserId == request.auth.uid);
       allow list, delete: if false; 
     }
 
     match /tenants/{tenantId}/settings/general {
-      allow get: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId));
+      allow get: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId));
       allow create: if isSignedIn(); 
-      allow update: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow update: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId)) && tenantIdImmutable();
       allow list, delete: if false;
     }
 
     match /tenants/{tenantId}/{collectionName}/{docId} {
-      allow read: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId));
-      allow create: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
-      allow update: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow read: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId));
+      allow create: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId)) && tenantIdImmutable();
       allow delete: if isSignedIn() && isTenantOwner(tenantId);
     }
 
     match /tenants/{tenantId}/chats/{chatId} {
-      allow read: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId));
-      allow create: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId)) && matchesPathTenant(tenantId);
-      allow update: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId)) && tenantIdImmutable();
+      allow read: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId));
+      allow create: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId)) && matchesPathTenant(tenantId);
+      allow update: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId)) && tenantIdImmutable();
       
       match /messages/{messageId} {
-        allow read: if isSignedIn() && (isTenantMember(tenantId) || isTenantOwner(tenantId));
+        allow read: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId));
         allow create: if isSignedIn() || (request.resource.data.senderId == 'client');
       }
     }

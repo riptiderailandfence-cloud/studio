@@ -38,9 +38,6 @@ const sendEstimateEmailFlow = ai.defineFlow(
     // This is the active implementation of the email service.
     // In a production environment, you would integrate a provider like Resend or SendGrid here.
     
-    console.log(`[PROTOTYPE] Dispatched email to: ${input.to}`);
-    console.log(`[PROTOTYPE] Subject: ${input.subject}`);
-    
     // Simulate real-world delivery latency
     await new Promise(resolve => setTimeout(resolve, 1500));
 

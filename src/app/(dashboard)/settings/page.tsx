@@ -24,8 +24,7 @@ import {
   Zap,
   TrendingUp,
   Loader2,
-  X,
-  AlertTriangle
+  X
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
@@ -106,29 +105,12 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file || !tenantId) return;
 
-    if (!storage) {
-      toast({ 
-        title: "Storage Error", 
-        description: "Firebase Storage is not initialized. Please refresh and try again.",
-        variant: "destructive" 
-      });
-      return;
-    }
-
     setIsUploadingLogo(true);
     try {
-      // Use a clean path for the logo
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const filePath = `tenants/${tenantId}/branding/logo.${fileExt}`;
-      const storageRef = ref(storage, filePath);
+      // Use standard naming for business branding
+      const storageRef = ref(storage, `tenants/${tenantId}/branding/logo.jpg`);
       
-      console.log(`Attempting upload to: ${filePath}`);
-      
-      // Upload with standard metadata
-      const snapshot = await uploadBytes(storageRef, file, {
-        contentType: file.type || 'image/jpeg'
-      });
-      
+      const snapshot = await uploadBytes(storageRef, file);
       const url = await getDownloadURL(snapshot.ref);
       
       setFormData(prev => ({ ...prev, logoUrl: url }));
@@ -136,26 +118,15 @@ export default function SettingsPage() {
         title: "Logo Uploaded", 
         description: "Click 'Save Changes' to apply your new branding." 
       });
-    } catch (error: any) {
-      console.error("Logo upload error details:", error);
-      
-      let message = "The file could not be uploaded.";
-      if (error.code === 'storage/unauthorized') {
-        message = "Permission denied. Check storage security rules.";
-      } else if (error.code === 'storage/retry-limit-exceeded') {
-        message = "Upload timed out. Check your network connection.";
-      } else if (error.message?.includes('Preflight')) {
-        message = "Connection issue (CORS/Preflight). Please try again or check Firebase Console.";
-      }
-
+    } catch (error) {
+      console.error(error);
       toast({ 
         title: "Upload Failed", 
-        description: message,
+        description: "Could not upload image. Ensure it is a valid JPG/PNG.", 
         variant: "destructive" 
       });
     } finally {
       setIsUploadingLogo(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -221,17 +192,11 @@ export default function SettingsPage() {
                 <div className="flex flex-col items-center gap-2">
                   <Label>Business Logo</Label>
                   <div 
-                    className={cn(
-                      "h-32 w-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center bg-secondary/20 text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer group relative overflow-hidden",
-                      isUploadingLogo && "cursor-wait opacity-50"
-                    )}
-                    onClick={() => !isUploadingLogo && fileInputRef.current?.click()}
+                    className="h-32 w-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center bg-secondary/20 text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer group relative overflow-hidden"
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     {isUploadingLogo ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                        <span className="text-[10px] font-bold uppercase animate-pulse">Uploading...</span>
-                      </div>
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     ) : formData.logoUrl ? (
                       <>
                         <img src={formData.logoUrl} alt="Business Logo" className="w-full h-full object-contain p-2" />

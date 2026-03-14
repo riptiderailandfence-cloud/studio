@@ -13,14 +13,9 @@ service cloud.firestore {
 
     // Direct check for business ownership
     function isTenantOwner(tenantId) {
-      // 1. Primary check: User ID matches Tenant ID (Deterministic owner path)
-      // 2. Secondary check: User profile exists and links to this tenant as Owner (Avoids recursive tenant lookups)
-      return isSignedIn() && (
-        request.auth.uid == tenantId || 
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Owner')
-      );
+      // Production Check: In this app, the primary owner's UID matches the Tenant ID.
+      // This is deterministic and avoids recursive doc lookups.
+      return isSignedIn() && (request.auth.uid == tenantId);
     }
 
     // Check if user is a member of the tenant via their profile

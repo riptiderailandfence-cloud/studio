@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, serverTimestamp, setDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { doc, serverTimestamp, getDoc, writeBatch } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -27,8 +26,13 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
 
       const deterministicTenantId = user.uid;
       
-      // If profile exists and is correctly pointing to the deterministic tenant, we are done
-      if (profile && profile.tenantId === deterministicTenantId) return;
+      // If profile exists and is correctly pointing to the deterministic tenant, check if we need to set up missing pieces
+      if (profile && profile.tenantId === deterministicTenantId) {
+        // Double check settings exist
+        const settingsRef = doc(firestore, 'tenants', deterministicTenantId, 'settings', 'general');
+        const settingsSnap = await getDoc(settingsRef);
+        if (settingsSnap.exists()) return; // Fully initialized
+      }
 
       setSetupInProgress(true);
       
@@ -37,10 +41,10 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         const tenantRef = doc(firestore, 'tenants', deterministicTenantId);
         const settingsRef = doc(firestore, 'tenants', deterministicTenantId, 'settings', 'general');
 
-        // Use a batch for atomic initialization
         const batch = writeBatch(firestore);
 
         // 1. Ensure User Profile exists and is correctly linked
+        // We use merge: true to avoid overwriting existing data if only tenantId was missing
         batch.set(userRef, {
           id: user.uid,
           tenantId: deterministicTenantId, 
@@ -59,7 +63,7 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
           updatedAt: serverTimestamp(),
         }, { merge: true });
 
-        // 3. Ensure Settings exist (check first to avoid overwriting)
+        // 3. Ensure Settings exist (check first to avoid overwriting custom values)
         const settingsSnap = await getDoc(settingsRef);
         if (!settingsSnap.exists()) {
           batch.set(settingsRef, {
@@ -69,6 +73,9 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
             pricingMethod: 'margin',
             profitPct: 30,
             salesTaxRate: 8.25,
+            crewSize: 2,
+            avgHourlyRate: 35,
+            dailyProduction: 100,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
           });
@@ -96,8 +103,8 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <div className="text-center">
-            <p className="text-sm font-bold text-slate-900">Syncing Workspace</p>
-            <p className="text-xs text-muted-foreground">Checking business profile persistence...</p>
+            <p className="text-sm font-bold text-slate-900">Syncing Production Workspace</p>
+            <p className="text-xs text-muted-foreground">Connecting to your secure business database...</p>
           </div>
         </div>
       </div>

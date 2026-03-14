@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,19 +24,24 @@ import {
   Users,
   Zap,
   TrendingUp,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase, setDocumentNonBlocking, useStorage } from "@/firebase";
 import { doc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function SettingsPage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const userRef = useMemoFirebase(() => {
     return user ? doc(firestore, 'users', user.uid) : null;
@@ -65,7 +70,8 @@ export default function SettingsPage() {
     dailyProduction: 100,
     requireDeposit: true,
     depositPct: 0.5,
-    contractTemplate: ""
+    contractTemplate: "",
+    logoUrl: ""
   });
 
   useEffect(() => {
@@ -83,7 +89,6 @@ export default function SettingsPage() {
     
     setLoading(true);
     
-    // Explicitly include tenantId to ensure security rules are satisfied
     setDocumentNonBlocking(settingsRef, {
       ...formData,
       tenantId,
@@ -94,6 +99,30 @@ export default function SettingsPage() {
       setLoading(false);
       toast({ title: "Settings Saved", description: "Business profile and pricing logic updated successfully." });
     }, 600);
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !tenantId) return;
+
+    setIsUploadingLogo(true);
+    try {
+      const storageRef = ref(storage, `tenants/${tenantId}/logos/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      setFormData(prev => ({ ...prev, logoUrl: url }));
+      toast({ title: "Logo Uploaded", description: "Remember to save your changes." });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Upload Failed", variant: "destructive" });
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const removeLogo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFormData(prev => ({ ...prev, logoUrl: "" }));
   };
 
   if (!mounted) return null;
@@ -149,10 +178,41 @@ export default function SettingsPage() {
               <div className="flex flex-col md:flex-row gap-6 items-start">
                 <div className="flex flex-col items-center gap-2">
                   <Label>Business Logo</Label>
-                  <div className="h-32 w-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center bg-secondary/20 text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer group">
-                    <ImageIcon className="h-8 w-8 mb-2 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] uppercase font-bold text-center px-2">Upload Logo</span>
+                  <div 
+                    className="h-32 w-32 rounded-lg border-2 border-dashed flex flex-col items-center justify-center bg-secondary/20 text-muted-foreground hover:bg-secondary/40 transition-colors cursor-pointer group relative overflow-hidden"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {isUploadingLogo ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    ) : formData.logoUrl ? (
+                      <>
+                        <img src={formData.logoUrl} alt="Business Logo" className="w-full h-full object-contain p-2" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-white" />
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          size="icon" 
+                          className="absolute top-1 right-1 h-6 w-6 rounded-full" 
+                          onClick={removeLogo}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-8 w-8 mb-2 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] uppercase font-bold text-center px-2">Upload Logo</span>
+                      </>
+                    )}
                   </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    onChange={handleLogoUpload} 
+                  />
                 </div>
                 <div className="flex-1 grid gap-4">
                   <div className="grid gap-2">

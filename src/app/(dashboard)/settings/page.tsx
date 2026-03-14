@@ -24,7 +24,8 @@ import {
   Zap,
   TrendingUp,
   Loader2,
-  X
+  X,
+  AlertTriangle
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
@@ -103,35 +104,53 @@ export default function SettingsPage() {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !tenantId || !storage) {
-      console.warn("Upload aborted: Missing file, tenantId, or storage instance.");
+    if (!file || !tenantId) return;
+
+    if (!storage) {
+      toast({ 
+        title: "Storage Error", 
+        description: "Firebase Storage is not initialized. Please refresh and try again.",
+        variant: "destructive" 
+      });
       return;
     }
 
     setIsUploadingLogo(true);
     try {
-      const fileExt = file.name.split('.').pop() || 'png';
-      const fileName = `logo.${fileExt}`;
-      const filePath = `tenants/${tenantId}/branding/${fileName}`;
-      
+      // Use a clean path for the logo
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const filePath = `tenants/${tenantId}/branding/logo.${fileExt}`;
       const storageRef = ref(storage, filePath);
       
-      // Upload the file
-      const snapshot = await uploadBytes(storageRef, file);
+      console.log(`Attempting upload to: ${filePath}`);
       
-      // Get the persistent download URL
+      // Upload with standard metadata
+      const snapshot = await uploadBytes(storageRef, file, {
+        contentType: file.type || 'image/jpeg'
+      });
+      
       const url = await getDownloadURL(snapshot.ref);
       
       setFormData(prev => ({ ...prev, logoUrl: url }));
       toast({ 
         title: "Logo Uploaded", 
-        description: "Your business logo has been uploaded. Click 'Save Changes' to persist this update." 
+        description: "Click 'Save Changes' to apply your new branding." 
       });
     } catch (error: any) {
-      console.error("Logo upload error:", error);
+      console.error("Logo upload error details:", error);
+      
+      let message = "The file could not be uploaded.";
+      if (error.code === 'storage/unauthorized') {
+        message = "Permission denied. Check storage security rules.";
+      } else if (error.code === 'storage/retry-limit-exceeded') {
+        message = "Upload timed out. Check your network connection.";
+      } else if (error.message?.includes('Preflight')) {
+        message = "Connection issue (CORS/Preflight). Please try again or check Firebase Console.";
+      }
+
       toast({ 
         title: "Upload Failed", 
-        description: error.message || "The file could not be uploaded. Check your connection or storage permissions.",
+        description: message,
         variant: "destructive" 
       });
     } finally {
@@ -266,6 +285,7 @@ export default function SettingsPage() {
                       <Label htmlFor="phone" className="flex items-center gap-2"><Phone className="h-3 w-3" /> Phone Number</Label>
                       <Input 
                         id="phone" 
+                        type="phone" 
                         value={formData.phone} 
                         onChange={e => setFormData({...formData, phone: e.target.value})}
                       />

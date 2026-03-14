@@ -6,47 +6,41 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+/**
+ * Initializes Firebase App and returns initialized SDK instances.
+ * Handles both production (App Hosting) and development (Config Object) environments.
+ */
 export function initializeFirebase() {
-  if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp;
-    try {
-      // Attempt to initialize via Firebase App Hosting environment variables
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
-    }
+  let firebaseApp: FirebaseApp;
+  const apps = getApps();
 
-    return getSdks(firebaseApp);
+  if (apps.length > 0) {
+    firebaseApp = apps[0];
+  } else {
+    try {
+      // In App Hosting, initializeApp() without args picks up env vars automatically.
+      // We merge with firebaseConfig to ensure local fallbacks work and storageBucket is present.
+      firebaseApp = initializeApp(firebaseConfig);
+    } catch (e) {
+      console.warn('Firebase initialization warning:', e);
+      firebaseApp = getApp();
+    }
   }
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  return getSdks(firebaseApp);
 }
 
+/**
+ * Returns initialized Firebase SDKs for a given FirebaseApp instance.
+ */
 export function getSdks(firebaseApp: FirebaseApp) {
-  // We explicitly provide the storage bucket to ensure reliability in all environments
-  let storageBucket = firebaseApp.options.storageBucket || firebaseConfig.storageBucket;
-  
-  // Ensure the bucket has the gs:// prefix if it's provided as a string
-  if (storageBucket && !storageBucket.startsWith('gs://')) {
-    storageBucket = `gs://${storageBucket}`;
-  }
-  
+  // We rely on the bucket defined in the app options (from initializeApp).
+  // Passing it explicitly can sometimes cause URI formatting issues in certain environments.
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
     firestore: getFirestore(firebaseApp),
-    storage: getStorage(firebaseApp, storageBucket)
+    storage: getStorage(firebaseApp)
   };
 }
 

@@ -29,6 +29,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { generateEstimateEmail } from "@/ai/flows/generate-estimate-email";
+import { sendEstimateEmail } from "@/ai/flows/send-estimate-email";
 import { Textarea } from "@/components/ui/textarea";
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -59,6 +60,12 @@ export default function EstimatesPage() {
   const { data: profile } = useDoc(profileRef);
   const tenantId = profile?.tenantId;
 
+  const settingsRef = useMemoFirebase(() => {
+    if (!tenantId) return null;
+    return doc(firestore, 'tenants', tenantId, 'settings', 'general');
+  }, [firestore, tenantId]);
+  const { data: settings } = useDoc(settingsRef);
+
   const estimatesQuery = useMemoFirebase(() => {
     if (!tenantId) return null;
     return query(
@@ -88,11 +95,13 @@ export default function EstimatesPage() {
 
     try {
       const portalUrl = `${window.location.origin}/portal/${estimate.id}`;
+      const businessName = settings?.businessName || "Your Fencing Business";
+      
       const draft = await generateEstimateEmail({
         customerName: estimate.customerSnapshot?.name || "Valued Client",
         estimateTotal: estimate.totals.total,
         portalUrl: portalUrl,
-        businessName: "Evergreen Fencing Co.",
+        businessName: businessName,
       });
       setEmailDraft(draft);
     } catch (error) {
@@ -103,32 +112,46 @@ export default function EstimatesPage() {
     }
   };
 
-  const handleFinalSend = () => {
+  const handleFinalSend = async () => {
     if (!tenantId || !activeEstimate) return;
     
     setIsSendingEmail(true);
-    const docRef = doc(firestore, 'tenants', tenantId, 'estimates', activeEstimate.id);
     
-    // 1. Update status in Firestore
-    updateDocumentNonBlocking(docRef, {
-      status: 'sent',
-      sentAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-
-    // 2. Log delivery intent (Simulation)
-    console.log(`PROTOTYPE LOG: Sending email to ${activeEstimate.customerSnapshot?.email}`);
-    console.log(`Subject: ${emailDraft.subject}`);
-    console.log(`Body: ${emailDraft.body}`);
-
-    setTimeout(() => {
-      setIsSendingEmail(false);
-      setIsEmailDialogOpen(false);
-      toast({
-        title: "Estimate Sent",
-        description: `Successfully sent to ${activeEstimate.customerSnapshot?.name}. Status updated to SENT.`,
+    try {
+      // 1. Dispatch actual email flow
+      const result = await sendEstimateEmail({
+        to: activeEstimate.customerSnapshot?.email || "",
+        subject: emailDraft.subject,
+        body: emailDraft.body
       });
-    }, 1000);
+
+      if (result.success) {
+        // 2. Update status in Firestore
+        const docRef = doc(firestore, 'tenants', tenantId, 'estimates', activeEstimate.id);
+        updateDocumentNonBlocking(docRef, {
+          status: 'sent',
+          sentAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        toast({
+          title: "Estimate Sent",
+          description: `Successfully sent to ${activeEstimate.customerSnapshot?.name}.`,
+        });
+        setIsEmailDialogOpen(false);
+      } else {
+        throw new Error("Delivery failed");
+      }
+    } catch (error) {
+      console.error("Email send error:", error);
+      toast({ 
+        title: "Send Error", 
+        description: "Failed to deliver email. Please check the recipient address.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleShare = (id: string) => {
@@ -142,7 +165,6 @@ export default function EstimatesPage() {
   const safeFormatDate = (dateValue: any) => {
     if (!dateValue) return '---';
     try {
-      // Handle Firestore Timestamp objects
       const d = typeof dateValue.toDate === 'function' ? dateValue.toDate() : new Date(dateValue);
       if (isNaN(d.getTime())) return '---';
       return format(d, 'MMM d, yyyy');
@@ -169,7 +191,7 @@ export default function EstimatesPage() {
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 max-sm:w-full max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search estimates..." 
@@ -295,7 +317,7 @@ export default function EstimatesPage() {
               <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex gap-3">
                 <CheckCircle2 className="h-4 w-4 text-amber-600 shrink-0" />
                 <p className="text-[10px] text-amber-800 leading-tight">
-                  <strong>PROTOTYPE MODE:</strong> Confirming "Send" will update the estimate status to SENT. Actual email delivery is currently simulated in this preview environment.
+                  <strong>ACTIVATED:</strong> Confirming "Send" will dispatch the email and update the estimate status. Final delivery is managed by your server-side flow.
                 </p>
               </div>
             </div>

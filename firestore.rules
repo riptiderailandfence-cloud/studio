@@ -12,19 +12,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Direct check for business ownership using deterministic IDs
+    // Direct check for business ownership
     function isTenantOwner(tenantId) {
+      // Deterministic check for the primary owner
       return isSignedIn() && (
         request.auth.uid == tenantId || 
-        get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid
+        (exists(/databases/$(database)/documents/tenants/$(tenantId)) && 
+         get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerUserId == request.auth.uid)
       );
     }
 
     // Check if user is a member of the tenant via their profile
     function isTenantMember(tenantId) {
-      // We use a safe get() here. The 'users' collection rules must not call this function.
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return isSignedIn() && userDoc != null && userDoc.tenantId == tenantId;
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == tenantId;
     }
 
     function matchesPathTenant(tenantId) {
@@ -32,7 +34,6 @@ service cloud.firestore {
     }
 
     function tenantIdImmutable() {
-      // Allows field creation if it doesn't exist, otherwise forces equality
       return !("tenantId" in resource.data) || request.resource.data.tenantId == resource.data.tenantId;
     }
 
@@ -45,10 +46,9 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      // Use resource.data for self-access to avoid recursive get()
       allow get: if isSignedIn() && (
         request.auth.uid == tenantId || 
-        resource.data.ownerUserId == request.auth.uid || 
+        (resource != null && resource.data.ownerUserId == request.auth.uid) || 
         isTenantMember(tenantId)
       );
       allow create: if isSignedIn();
@@ -58,7 +58,7 @@ service cloud.firestore {
 
     match /tenants/{tenantId}/settings/general {
       allow get: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId));
-      allow create: if isSignedIn(); 
+      allow create: if isSignedIn() && matchesPathTenant(tenantId); 
       allow update: if isSignedIn() && (isTenantOwner(tenantId) || isTenantMember(tenantId)) && tenantIdImmutable();
       allow list, delete: if false;
     }

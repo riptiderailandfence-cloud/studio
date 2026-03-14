@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -25,25 +25,23 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
     async function initializeWorkspace() {
       if (!user || isUserLoading || isProfileLoading || setupInProgress) return;
 
-      // Deterministic check: Does this user have a confirmed tenant context?
-      if (profile && profile.tenantId) return;
+      const deterministicTenantId = user.uid;
+      
+      // If profile exists and is correctly pointing to the deterministic tenant, we are done
+      if (profile && profile.tenantId === deterministicTenantId) return;
 
       setSetupInProgress(true);
       
       try {
-        const deterministicTenantId = user.uid;
         const userRef = doc(firestore, 'users', user.uid);
         const tenantRef = doc(firestore, 'tenants', deterministicTenantId);
         const settingsRef = doc(firestore, 'tenants', deterministicTenantId, 'settings', 'general');
 
-        // Check if settings already exist to prevent overwriting business name with defaults
-        const settingsSnap = await getDoc(settingsRef);
-        const settingsExists = settingsSnap.exists();
+        // Use a batch for atomic initialization
+        const batch = writeBatch(firestore);
 
-        const batch = [];
-
-        // 1. Ensure User Profile exists
-        batch.push(setDoc(userRef, {
+        // 1. Ensure User Profile exists and is correctly linked
+        batch.set(userRef, {
           id: user.uid,
           tenantId: deterministicTenantId, 
           email: user.email || '',
@@ -51,34 +49,37 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
           role: 'Owner',
           active: true,
           updatedAt: serverTimestamp(),
-        }, { merge: true }));
+        }, { merge: true });
 
         // 2. Ensure Tenant record exists
-        batch.push(setDoc(tenantRef, {
+        batch.set(tenantRef, {
           id: deterministicTenantId,
-          name: "My Fencing Business",
+          name: profile?.businessName || "My Fencing Business",
           ownerUserId: user.uid,
           updatedAt: serverTimestamp(),
-        }, { merge: true }));
+        }, { merge: true });
 
-        // 3. Ensure Settings exist (only write defaults if truly missing)
-        if (!settingsExists) {
-          batch.push(setDoc(settingsRef, {
+        // 3. Ensure Settings exist (check first to avoid overwriting)
+        const settingsSnap = await getDoc(settingsRef);
+        if (!settingsSnap.exists()) {
+          batch.set(settingsRef, {
             tenantId: deterministicTenantId,
             businessName: "My Fencing Business",
             email: user.email || '',
             pricingMethod: 'margin',
             profitPct: 30,
+            salesTaxRate: 8.25,
+            createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
-          }));
+          });
         }
 
-        await Promise.all(batch);
+        await batch.commit();
         
-        // Brief pause to allow Firestore internal state to settle
-        setTimeout(() => setSetupInProgress(false), 800);
+        // Pause briefly to ensure propagation
+        setTimeout(() => setSetupInProgress(false), 500);
       } catch (error) {
-        console.error("Critical: Workspace initialization failed:", error);
+        console.error("Workspace initialization error:", error);
         setSetupInProgress(false);
       }
     }
@@ -86,8 +87,8 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
     initializeWorkspace();
   }, [user, isUserLoading, profile, isProfileLoading, firestore, setupInProgress]);
 
-  // Block rendering until we have a confirmed user AND a profile with a valid tenantId
-  const isReady = !isUserLoading && !isProfileLoading && !setupInProgress && profile && profile.tenantId;
+  // Block rendering until we have a confirmed user AND a profile with the correct deterministic ID
+  const isReady = !isUserLoading && !isProfileLoading && !setupInProgress && profile && profile.tenantId === user?.uid;
 
   if (!isReady) {
     return (
@@ -95,8 +96,8 @@ export function UserInitializer({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <div className="text-center">
-            <p className="text-sm font-bold text-slate-900">Configuring Workspace</p>
-            <p className="text-xs text-muted-foreground">Initializing secure business profile...</p>
+            <p className="text-sm font-bold text-slate-900">Syncing Workspace</p>
+            <p className="text-xs text-muted-foreground">Checking business profile persistence...</p>
           </div>
         </div>
       </div>
